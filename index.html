@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>裁床单大师 - 打菲</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 SheetJS 用于导出 Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+      @media print {
+        @page {
+          size: var(--paper-width, 40mm) var(--paper-height, 80mm);
+          margin: 0 !important;
+          padding: 0 !important;
+          /* 去除浏览器默认页眉页脚 */
+          margin-top: 0 !important;
+          margin-bottom: 0 !important;
+          margin-left: 0 !important;
+          margin-right: 0 !important;
+        }
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          height: 100%;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        body {
+          background: white;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .print-label {
+          width: var(--paper-width, 40mm);
+          height: var(--paper-height, 80mm);
+          padding: calc(var(--print-padding, 8px) / 3);
+          box-sizing: border-box;
+          page-break-after: always;
+          display: flex;
+          flex-direction: column;
+          font-family: sans-serif;
+          color: black;
+          overflow: hidden;
+          gap: calc(var(--print-gap, 10px) / 3);
+        }
+        .label-content {
+          height: 100%;
+          padding: var(--print-padding, 8px);
+          display: flex;
+          flex-direction: column;
+          font-size: var(--print-font-size, 14px);
+          line-height: calc(var(--print-line-spacing, 1.2) * 1em);
+        }
+        
+        /* 移除浏览器默认页眉页脚 */
+        @page :first {
+          margin: 0 !important;
+          padding-top: 0 !important;
+        }
+        @page :left {
+          margin: 0 !important;
+        }
+        @page :right {
+          margin: 0 !important;
+        }
+        
+        /* 隐藏所有非打印元素 */
+        header, footer, nav, aside, .no-print, .antialiased, .text-gray-900 {
+          display: none !important;
+        }
+        
+        /* 隐藏标题栏和可能的页眉元素 */
+        h1, h2, h3, h4, h5, h6 {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        
+        /* 隐藏可能的页眉页脚 */
+        div[style*="position: fixed"], 
+        div[style*="position: sticky"], 
+        div[style*="position: absolute"] {
+          display: none !important;
+        }
+      }
+
+      /* Preview styling for labels */
+      .label-preview-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: calc(var(--print-gap, 10px) * 2);
+        justify-content: center;
+        padding: 40px;
+        background: #e2e8f0;
+      }
+      .label-preview-card {
+        width: calc(var(--paper-width, 40) * 1mm);
+        height: calc(var(--paper-height, 80) * 1mm);
+        background: white;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        padding: calc(var(--print-padding, 8px) / 1.5);
+        box-sizing: border-box;
+        font-family: sans-serif;
+        transition: all 0.2s ease;
+      }
+      .label-inner {
+        height: 100%;
+        padding: var(--print-padding, 8px);
+        display: flex;
+        flex-direction: column;
+        font-size: var(--print-font-size, 9px);
+        line-height: calc(var(--print-line-spacing, 1.3) * 1em);
+      }
+      .label-header {
+        text-align: center;
+        font-weight: bold;
+        border-bottom: 1px solid black;
+        margin-bottom: 1mm;
+        padding-bottom: 0.5mm;
+        font-size: 11px;
+      }
+      .label-row {
+        display: flex;
+        margin-bottom: 0.5mm;
+      }
+      .label-row b {
+        min-width: 12mm;
+      }
+      .label-footer {
+        margin-top: auto;
+        display: flex;
+        justify-content: space-between;
+        font-size: 9px;
+        border-top: 1px dashed black;
+        padding-top: 1mm;
+      }
+
+      .fade-enter-active, .fade-leave-active {
+        transition: opacity 0.2s ease;
+      }
+      .fade-enter-from, .fade-leave-to {
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
