@@ -515,7 +515,16 @@ export default defineComponent({
       window.scrollTo(0, 0);
     },
     executePrint() {
-      window.print();
+      if (this.selectMode && this.selectedBundles.length === 0) {
+        alert('请选择至少一个扎号，或关闭选择模式后打印全部。');
+        return;
+      }
+      this.$nextTick(() => window.print());
+    },
+    exitPrintPreview() {
+      this.isPreviewing = false;
+      this.selectMode = false;
+      this.selectedBundles = [];
     },
     async loadHistory() {
       try {
@@ -628,26 +637,31 @@ export default defineComponent({
       this.formData.cols[index].name = target.value;
     },
 
-    // 新增方法：保存表单
+    goBackToList() {
+      this.isPreviewing = false;
+      this.showPrintDialog = false;
+      this.selectMode = false;
+      this.selectedBundles = [];
+      this.$emit('back');
+    },
+
     async saveForm() {
       this.saving = true;
       try {
-        // 更新时间戳
-        this.formData.updatedAt = Date.now();
-        
-        // 保存到数据库
-        const savedForm = await saveFormToDB(this.formData);
-        
-        // 更新本地状态
+        const savedForm = JSON.parse(JSON.stringify({
+          ...this.formData,
+          updatedAt: Date.now()
+        }));
+
+        await saveFormToDB(savedForm);
+        this.formData = JSON.parse(JSON.stringify(savedForm));
         this.saveSuccess = true;
-        this.isNewOrder = false; // 标记为已保存
-        
-        // 3秒后隐藏成功消息
+        this.isNewOrder = false;
+
         setTimeout(() => {
           this.saveSuccess = false;
         }, 3000);
-        
-        // 触发保存成功的事件
+
         this.$emit('save', savedForm);
       } catch (error) {
         console.error('Failed to save form:', error);
@@ -659,11 +673,12 @@ export default defineComponent({
 
     // 新增方法：打印订单
     printOrder() {
+      if (this.totalBundles === 0) {
+        alert('表格中没有可打印的扎号。');
+        return;
+      }
       this.isPreviewing = true;
-      // 在打印预览模式下触发打印
-      setTimeout(() => {
-        window.print();
-      }, 100);
+      window.scrollTo(0, 0);
     },
     
     // 计算属性
@@ -785,9 +800,9 @@ export default defineComponent({
   },
   template: `
     <!-- Thermal Label Preview Interface -->
-    <div v-if="isPreviewing" class="fixed inset-0 bg-white z-50 overflow-auto p-8 print:bg-transparent print:p-0 print:z-0">
+    <div v-if="isPreviewing" class="fixed inset-0 bg-white z-50 overflow-auto p-6 print:bg-transparent print:p-0 print:z-0">
       <!-- Actual Thermal Label Print Output -->
-      <div class="hidden print:block" :style="printStyleVars">
+      <div class="thermal-print-root hidden print:block" :style="printStyleVars">
         <div v-for="label in filteredLabels" :key="'print-'+label.id" class="print-label">
            <div class="label-content">
               <div class="label-header">青蓝服装裁剪工作室</div>
@@ -807,6 +822,69 @@ export default defineComponent({
            </div>
         </div>
       </div>
+
+      <div class="no-print max-w-6xl mx-auto">
+        <div class="flex items-center justify-between gap-4 mb-6 border-b border-gray-200 pb-5">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-900">打印预览</h2>
+            <p class="text-gray-500 mt-1">{{ selectMode ? '已选择 ' + selectedBundles.length + ' 扎' : '当前打印全部扎号' }}，共 {{ filteredLabels.length }} 张标签</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button @click="exitPrintPreview" class="h-11 px-5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium">返回编辑</button>
+            <button @click="executePrint" class="h-11 px-5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium flex items-center gap-2">
+              <icon-printer :size="18" />
+              开始打印
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-6">
+          <div class="flex flex-wrap items-center gap-3 mb-4">
+            <button @click="toggleSelectMode" :class="selectMode ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-300'" class="h-10 px-4 rounded-lg font-medium transition">
+              {{ selectMode ? '按扎选择：开' : '按扎选择：关' }}
+            </button>
+            <button v-if="selectMode" @click="selectAllBundles" class="h-10 px-4 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100">全选</button>
+            <button v-if="selectMode" @click="clearBundleSelection" class="h-10 px-4 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100">清空</button>
+            <button @click="resetPrintStyle" class="h-10 px-4 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100">默认纸张</button>
+          </div>
+
+          <div v-if="selectMode" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            <button
+              v-for="label in labels"
+              :key="'bundle-pick-' + label.id"
+              @click="toggleBundleSelection(label.bundleNo)"
+              :class="selectedBundles.includes(label.bundleNo) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700'"
+              class="border rounded-lg p-3 text-left hover:border-blue-300 transition"
+            >
+              <div class="font-bold">扎 {{ label.bundleNo }}</div>
+              <div class="text-sm mt-1">{{ label.color }} / {{ label.size }}</div>
+              <div class="text-xs text-gray-500 mt-1">{{ label.qty }} 件</div>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="filteredLabels.length === 0" class="text-center py-20 text-gray-500 bg-gray-50 border border-gray-200 rounded-xl">
+          没有可打印的标签，请选择扎号或返回编辑检查数量。
+        </div>
+        <div v-else class="label-preview-container" :style="printStyleVars">
+          <div v-for="label in filteredLabels" :key="'preview-'+label.id" class="label-preview-card">
+            <div class="label-inner">
+              <div class="label-header">青蓝服装裁剪工作室</div>
+              <div class="label-row"><b>款号：</b>{{ label.styleNumber }}</div>
+              <div class="label-row"><b>床号：</b>{{ label.bedNumber }}</div>
+              <div class="label-row"><b>颜色：</b>{{ label.color }}</div>
+              <div class="label-row"><b>尺码：</b>{{ label.size }}</div>
+              <div class="label-row"><b>扎号：</b>{{ label.bundleNo }}</div>
+              <div class="label-row"><b>件数：</b>{{ label.qty }}</div>
+              <div v-if="label.section" class="mt-auto text-[12px] font-black py-0.5">{{ label.section }}</div>
+              <div class="label-footer">
+                <span>第 {{ label.currentPage }} 张</span>
+                <span>共 {{ label.totalPage }} 张</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Main Editor UI -->
@@ -814,7 +892,7 @@ export default defineComponent({
       <div class="bg-white border-b border-gray-200 shadow-sm">
         <div class="max-w-screen-2xl mx-auto px-6 py-5 flex items-center justify-between">
           <div class="flex items-center gap-5 min-w-0">
-            <button @click="$emit('back')" class="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition" title="返回列表">
+            <button @click="goBackToList" class="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition" title="返回列表">
               <icon-arrow-left :size="24" />
             </button>
             <h2 class="text-2xl font-bold text-gray-900 truncate">{{ isNewOrder ? '新建裁床单' : '编辑裁床单' }}</h2>

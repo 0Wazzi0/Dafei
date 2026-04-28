@@ -10,7 +10,7 @@
     <style>
       @media print {
         @page {
-          size: var(--paper-width, 40mm) var(--paper-height, 80mm);
+          size: 40mm 80mm;
           margin: 0 !important;
           padding: 0 !important;
           /* 去除浏览器默认页眉页脚 */
@@ -29,12 +29,29 @@
         body {
           background: white;
         }
+        body * {
+          visibility: hidden !important;
+        }
+        .thermal-print-root,
+        .thermal-print-root * {
+          visibility: visible !important;
+        }
+        .thermal-print-root {
+          display: block !important;
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 40mm !important;
+          min-height: 80mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
         .no-print {
           display: none !important;
         }
         .print-label {
-          width: var(--paper-width, 40mm);
-          height: var(--paper-height, 80mm);
+          width: 40mm;
+          height: 80mm;
           padding: calc(var(--print-padding, 8px) / 3);
           box-sizing: border-box;
           page-break-after: always;
@@ -67,7 +84,7 @@
         }
         
         /* 隐藏所有非打印元素 */
-        header, footer, nav, aside, .no-print, .antialiased, .text-gray-900 {
+        header, footer, nav, aside, .no-print {
           display: none !important;
         }
         
@@ -75,13 +92,6 @@
         h1, h2, h3, h4, h5, h6 {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
-        }
-        
-        /* 隐藏可能的页眉页脚 */
-        div[style*="position: fixed"], 
-        div[style*="position: sticky"], 
-        div[style*="position: absolute"] {
-          display: none !important;
         }
       }
 
