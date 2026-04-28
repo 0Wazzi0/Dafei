@@ -160,11 +160,6 @@ export default defineComponent({
         </div>
       </div>
 
-      <!-- Debug Info -->
-      <div class="text-center py-4 text-sm text-gray-500">
-        Current View: {{ view }} | Selected Form: {{ selectedForm ? selectedForm.id : 'None' }}
-      </div>
-
       <!-- Main Content -->
       <transition name="fade" mode="out-in">
         <form-list 

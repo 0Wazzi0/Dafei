@@ -784,14 +784,6 @@ export default defineComponent({
     }
   },
   template: `
-    <!-- Debug Info -->
-    <div class="bg-yellow-100 p-4 mb-4 rounded">
-      <p>FormEditor Debug Info:</p>
-      <p>- isPreviewing: {{ isPreviewing }}</p>
-      <p>- formData: {{ formData ? 'Exists' : 'Null' }}</p>
-      <p>- isNewOrder: {{ isNewOrder }}</p>
-    </div>
-
     <!-- Thermal Label Preview Interface -->
     <div v-if="isPreviewing" class="fixed inset-0 bg-white z-50 overflow-auto p-8 print:bg-transparent print:p-0 print:z-0">
       <!-- Actual Thermal Label Print Output -->
@@ -818,383 +810,156 @@ export default defineComponent({
     </div>
 
     <!-- Main Editor UI -->
-    <div v-if="!isPreviewing" class="flex-1 overflow-auto p-4 md:p-8">
-      <div class="max-w-7xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-8 min-h-[800px]">
-        
-        <!-- 编辑状态提示条 -->
-        <div :class="isNewOrder ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'" 
-             class="mb-6 p-4 rounded-lg border flex items-center gap-3">
-          <svg v-if="isNewOrder" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-70">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-          </svg>
-          <svg v-else xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-70">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
-          <div>
-            <div class="font-semibold">{{ isNewOrder ? '新建裁床单 (草稿)' : '编辑裁床单' }}</div>
-            <div class="text-sm opacity-80">{{ isNewOrder ? '此订单尚未保存至数据库' : '您正在编辑已有订单' }}</div>
+    <div v-if="!isPreviewing" class="min-h-screen bg-gray-50">
+      <div class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="max-w-screen-2xl mx-auto px-6 py-5 flex items-center justify-between">
+          <div class="flex items-center gap-5 min-w-0">
+            <button @click="$emit('back')" class="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition" title="返回列表">
+              <icon-arrow-left :size="24" />
+            </button>
+            <h2 class="text-2xl font-bold text-gray-900 truncate">{{ isNewOrder ? '新建裁床单' : '编辑裁床单' }}</h2>
+            <span class="px-3 py-2 rounded bg-gray-100 text-gray-400 text-sm">{{ isNewOrder ? '草稿实时保存中' : '修改后请保存' }}</span>
           </div>
-        </div>
-        
-        <!-- Back & Save Buttons -->
-        <div class="flex justify-between items-center mb-6">
-          <button 
-            @click="$emit('back')" 
-            class="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-          >
-            <icon-arrow-left :size="18" />
-            返回列表
-          </button>
-          
           <div class="flex items-center gap-3">
-            <button 
-              @click="printOrder"
-              class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-            >
-              <icon-printer :size="18" />
-              打印标签
+            <button @click="$emit('report', formData)" class="h-12 px-6 flex items-center gap-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-lg font-medium transition">
+              <icon-clipboard :size="22" />
+              裁床单报表
             </button>
-            
-            <button 
-              @click="saveForm"
-              :disabled="saving"
-              class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-            >
-              <icon-save v-if="!saving" :size="18" />
-              <icon-loader2 v-else :size="18" :spin="true" />
-              {{ saving ? '保存中...' : (isNewOrder ? '保存订单' : '更新订单') }}
+            <button @click="printOrder" class="h-12 px-6 flex items-center gap-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-lg font-medium transition">
+              <icon-printer :size="22" />
+              打印菲
             </button>
-            
-            <div v-if="saveSuccess" class="text-green-600 font-medium flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-              已保存
-            </div>
+            <button @click="saveForm" :disabled="saving" class="h-12 px-6 flex items-center gap-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 text-lg font-medium transition">
+              <icon-save v-if="!saving" :size="22" />
+              <icon-loader2 v-else :size="22" :spin="true" />
+              {{ saving ? '保存中...' : '保存订单' }}
+            </button>
           </div>
         </div>
-        
-        <!-- Status Message -->
-        <div v-if="saveSuccess" class="mb-6 p-3 bg-green-50 text-green-700 rounded-lg text-center">
-          {{ isNewOrder ? '订单已创建！' : '订单已更新！' }}
-        </div>
-        
-        <!-- Form Fields -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">款号 *</label>
-            <input 
-              v-model="formData.styleNumber"
-              type="text" 
-              :disabled="!isNewOrder"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition disabled:bg-gray-100"
-              placeholder="输入款号"
-              @focus="loadHistory('styleNumber')"
-              @blur="hideHistory('styleNumber')"
-            />
-            <!-- 款号历史记录下拉列表 -->
-            <div v-if="showStyleNumberHistory" class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-              <div 
-                v-for="item in styleNumberHistory" 
-                :key="item.value"
-                @click="selectHistoryItem('styleNumber', item.value)"
-                class="p-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-              >
-                <div class="font-medium">{{ item.value }}</div>
-                <div class="text-xs text-gray-500">{{ new Date(item.lastUsed).toLocaleString() }} · 使用 {{ item.count }} 次</div>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">客户 *</label>
-            <input 
-              v-model="formData.customer"
-              type="text" 
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              placeholder="输入客户"
-              @focus="loadHistory('customer')"
-              @blur="hideHistory('customer')"
-            />
-            <!-- 客户历史记录下拉列表 -->
-            <div v-if="showCustomerHistory" class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-              <div 
-                v-for="item in customerHistory" 
-                :key="item.value"
-                @click="selectHistoryItem('customer', item.value)"
-                class="p-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-              >
-                <div class="font-medium">{{ item.value }}</div>
-                <div class="text-xs text-gray-500">{{ new Date(item.lastUsed).toLocaleString() }} · 使用 {{ item.count }} 次</div>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">床次</label>
-            <input 
-              v-model="formData.bedNumber"
-              type="text" 
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-              placeholder="输入床次"
-            />
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">总件数</label>
-            <input 
-              :value="totalPieces"
-              readonly
-              type="text" 
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
-            />
-          </div>
-        </div>
-        
-        <!-- Section Selection -->
-        <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700 mb-2">选择部位</label>
-          <div class="flex flex-wrap gap-2">
-            <label 
-              v-for="section in commonSections" 
-              :key="'section-' + section"
-              class="inline-flex items-center gap-1 px-3 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50"
-            >
-              <input 
-                v-model="selectedSections" 
-                type="checkbox" 
-                :value="section"
-                class="rounded text-blue-600 focus:ring-blue-500"
-              />
-              {{ section }}
-            </label>
-          </div>
-        </div>
-        
-        <!-- Matrix Editor -->
-        <div class="border border-gray-200 rounded-xl p-4 md:p-6 mb-8 bg-gray-50">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-semibold text-gray-800">裁床数据</h2>
-            <div class="flex gap-2">
-              <button 
-                @click="showPrintSettings = true"
-                class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm"
-              >
-                打印设置
-              </button>
-              <button 
-                @click="addRow()"
-                class="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-              >
-                <icon-plus :size="16" />
-                添加行
-              </button>
-              <button 
-                @click="addCol()"
-                class="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-              >
-                <icon-plus :size="16" />
-                添加列
-              </button>
-            </div>
-          </div>
-          
-          <!-- Matrix Controls -->
-          <div class="mb-6">
-            <div class="flex flex-col sm:flex-row gap-4">
-              <div class="flex-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">添加颜色</label>
-                <div class="flex">
-                  <input 
-                    v-model="newColorInput"
-                    @keyup.enter="addToPoolColor"
-                    type="text" 
-                    placeholder="输入颜色名称"
-                    class="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
-                  />
-                  <button 
-                    @click="addRow(newColorInput); newColorInput = ''"
-                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 border-y border-r border-gray-300 rounded-r-lg transition"
-                  >
-                    <icon-plus :size="18" />
-                  </button>
-                </div>
-                
-                <!-- Pool of common colors -->
-                <div class="mt-2 flex flex-wrap gap-1 max-w-full overflow-auto hide-scrollbar pb-2">
-                  <button
-                    v-for="color in commonColors"
-                    :key="'color-pool-' + color"
-                    @click="addRow(color)"
-                    class="px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-blue-50 transition whitespace-nowrap"
-                  >
-                    {{ color }}
-                  </button>
-                </div>
-              </div>
-              
-              <div class="flex-1">
-                <label class="block text-sm font-medium text-gray-700 mb-1">添加尺码</label>
-                <div class="flex">
-                  <input 
-                    v-model="newSizeInput"
-                    @keyup.enter="addToPoolSize"
-                    type="text" 
-                    placeholder="输入尺码"
-                    class="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 outline-none transition"
-                  />
-                  <button 
-                    @click="addCol(newSizeInput); newSizeInput = ''"
-                    class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 border-y border-r border-gray-300 rounded-r-lg transition"
-                  >
-                    <icon-plus :size="18" />
-                  </button>
-                </div>
-                
-                <!-- Pool of common sizes -->
-                <div class="mt-2 flex flex-wrap gap-1 max-w-full overflow-auto hide-scrollbar pb-2">
-                  <button
-                    v-for="size in commonSizes"
-                    :key="'size-pool-' + size"
-                    @click="addCol(size)"
-                    class="px-2 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:bg-blue-50 transition whitespace-nowrap"
-                  >
-                    {{ size }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Matrix Header -->
-          <div class="overflow-x-auto">
-            <div class="flex min-w-max">
-              <div class="w-32 flex-shrink-0"></div>
-              <div class="flex">
-                <!-- Column headers with delete buttons -->
-                <div 
-                  v-for="(col, colIdx) in formData.cols" 
-                  :key="'header-' + col.id"
-                  class="w-24 flex relative group"
-                >
-                  <input
-                    :value="col.name"
-                    @input="updateColName(colIdx, $event)"
-                    class="w-full px-2 py-1.5 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700"
-                  />
-                  <button 
-                    @click="deleteCol(colIdx)"
-                    class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs hover:bg-red-600"
-                  >
-                    ×
-                  </button>
-                </div>
-                <div class="w-24 flex-shrink-0"></div>
-              </div>
-            </div>
-            
-            <!-- Matrix Rows - 使用普通div代替draggable -->
-            <div class="space-y-3">
-              <div 
-                v-for="(row, rowIdx) in formData.rows" 
-                :key="'row-' + row.id"
-                class="flex items-center group">
-                <!-- Row header with drag handle and delete button -->
-                <div class="w-32 flex items-center gap-2 pr-2">
-                  <div class="text-center w-8">
-                    <icon-grip-vertical 
-                      class="text-gray-400" 
-                      :size="18" 
-                    />
-                  </div>
-                  <input
-                    :value="row.name"
-                    @input="updateRowName(rowIdx, $event)"
-                    class="flex-1 px-2 py-1.5 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700"
-                  />
-                  <button 
-                    @click="deleteRow(rowIdx)"
-                    class="w-6 h-6 flex items-center justify-center bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 text-xs"
-                  >
-                    ×
-                  </button>
-                </div>
-                
-                <div class="flex">
-                  <!-- Cells for this row -->
-                  <div 
-                    v-for="(col, colIdx) in formData.cols" 
-                    :key="'cell-' + row.id + '-' + col.id"
-                    class="w-24"
-                  >
-                    <input
-                      :value="getCellValue(row.id, col.id)"
-                      @input="updateCell(row.id, col.id, $event.target.value)"
-                      @focus="handleInputFocus"
-                      @keydown="handleCellKeyDown($event, row.id, col.id)"
-                      class="w-full px-2 py-2 text-center border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-700"
-                    />
-                  </div>
-                  
-                  <!-- Total for this row -->
-                  <div class="w-24 flex items-center justify-center">
-                    <span class="font-bold text-gray-800">{{ colorTotals[row.id] }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Column Totals Row -->
-            <div class="flex mt-3 pt-3 border-t border-gray-300">
-              <div class="w-32 flex-shrink-0">
-                <div class="font-bold text-gray-800 text-center py-2">小计</div>
-              </div>
-              <div class="flex">
-                <div 
-                  v-for="(col, colIdx) in formData.cols" 
-                  :key="'total-' + col.id"
-                  class="w-24"
-                >
-                  <div class="w-full px-2 py-2 text-center bg-gray-100 font-bold text-gray-800 rounded-lg">
-                    {{ getColTotal(col.id) }}
-                  </div>
-                </div>
-                <div class="w-24 flex items-center justify-center">
-                  <span class="font-bold text-gray-800">{{ totalPieces }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      </div>
 
-        <!-- Smart Fill Controls -->
-        <div class="mt-8 pt-6 border-t border-gray-200">
-          <div class="flex items-center gap-4">
-            <div class="flex items-center">
-              <input 
-                type="checkbox" 
-                :checked="isAllRowFillEnabled"
-                @change="toggleAllRowFill"
-                class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <span class="ml-2 text-sm font-medium text-gray-700">整行智能填充</span>
+      <div class="max-w-screen-2xl mx-auto px-6 py-10">
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm px-10 py-10 min-h-[760px]">
+          <div :class="isNewOrder ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'" class="mb-8 px-5 py-4 rounded-lg border flex items-center gap-3 text-lg">
+            <icon-save :size="22" />
+            <span>{{ isNewOrder ? '新订单 - 自动保存草稿中' : '已有订单 - 保存后更新数据库' }}</span>
+          </div>
+
+          <div v-if="saveSuccess" class="mb-8 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-center text-lg">
+            {{ isNewOrder ? '订单已创建！' : '订单已更新！' }}
+          </div>
+
+          <div class="grid grid-cols-3 gap-12 mb-10">
+            <div class="relative">
+              <label class="block text-lg text-gray-600 mb-4">款号 (STYLE NO.)</label>
+              <input v-model="formData.styleNumber" type="text" :disabled="!isNewOrder" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none disabled:text-gray-500" placeholder="款号" @focus="loadHistory('styleNumber')" @blur="hideHistory('styleNumber')" />
+              <button type="button" @mousedown.prevent="toggleStyleNumberHistory" class="absolute right-0 bottom-4 text-gray-400 hover:text-gray-700" title="选择历史款号">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div v-if="showStyleNumberHistory" class="absolute left-0 right-0 z-20 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
+                <div v-for="item in styleNumberHistory" :key="item.value" @mousedown.prevent="selectHistoryItem('styleNumber', item.value)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
+                  <div class="font-medium text-gray-900">{{ item.value }}</div>
+                  <div class="text-xs text-gray-500">使用 {{ item.count }} 次</div>
+                </div>
+              </div>
             </div>
-            
-            <div class="flex items-center">
-              <input 
-                type="checkbox" 
-                :checked="isAllColFillEnabled"
-                @change="toggleAllColFill"
-                class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              />
-              <span class="ml-2 text-sm font-medium text-gray-700">整列智能填充</span>
+
+            <div class="relative">
+              <label class="block text-lg text-gray-600 mb-4">客户 (CUSTOMER)</label>
+              <input v-model="formData.customer" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none" placeholder="客户" @focus="loadHistory('customer')" @blur="hideHistory('customer')" />
+              <button type="button" @mousedown.prevent="toggleCustomerHistory" class="absolute right-0 bottom-4 text-gray-400 hover:text-gray-700" title="选择历史客户">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div v-if="showCustomerHistory" class="absolute left-0 right-0 z-20 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
+                <div v-for="item in customerHistory" :key="item.value" @mousedown.prevent="selectHistoryItem('customer', item.value)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
+                  <div class="font-medium text-gray-900">{{ item.value }}</div>
+                  <div class="text-xs text-gray-500">使用 {{ item.count }} 次</div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-lg text-gray-600 mb-4">床号 (BED NO.)</label>
+              <input v-model="formData.bedNumber" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none" placeholder="床号" />
             </div>
           </div>
-          
-          <div class="mt-4 text-sm text-gray-600">
-            <p><strong>智能填充说明：</strong>勾选后，输入某格数值时，同行/同列后续格子将自动填充相同数值</p>
+
+          <div class="border border-gray-200 rounded-xl bg-gray-50 px-8 py-7 mb-10">
+            <div class="grid grid-cols-2 gap-10 divide-x divide-gray-200">
+              <div class="pr-10">
+                <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-5">
+                  <h3 class="text-xl font-bold text-gray-900">颜色池</h3>
+                  <span class="text-sm text-gray-400">右键移除</span>
+                </div>
+                <div class="flex flex-wrap gap-3 mb-5">
+                  <button v-for="color in commonColors" :key="'color-pool-' + color" @click="addRow(color)" @contextmenu.prevent="removeFromPool('color', color)" class="min-w-[62px] h-12 px-5 bg-white border border-gray-200 rounded-lg text-xl text-gray-900 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition">{{ color }}</button>
+                </div>
+                <div class="flex gap-3">
+                  <input v-model="newColorInput" @keyup.enter="addRow(newColorInput); addToPoolColor()" type="text" placeholder="添加新颜色..." class="flex-1 h-12 px-4 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
+                  <button @click="addRow(newColorInput); addToPoolColor()" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
+                </div>
+              </div>
+
+              <div class="pl-10">
+                <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-5">
+                  <h3 class="text-xl font-bold text-gray-900">尺码池</h3>
+                  <span class="text-sm text-gray-400">右键移除</span>
+                </div>
+                <div class="flex flex-wrap gap-3 mb-5">
+                  <button v-for="size in commonSizes" :key="'size-pool-' + size" @click="addCol(size)" @contextmenu.prevent="removeFromPool('size', size)" class="min-w-[62px] h-12 px-5 bg-white border border-gray-200 rounded-lg text-xl text-gray-900 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition">{{ size }}</button>
+                </div>
+                <div class="flex gap-3">
+                  <input v-model="newSizeInput" @keyup.enter="addCol(newSizeInput); addToPoolSize()" type="text" placeholder="添加新尺码..." class="flex-1 h-12 px-4 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
+                  <button @click="addCol(newSizeInput); addToPoolSize()" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto pb-2">
+            <table class="min-w-full border-collapse text-gray-900">
+              <thead>
+                <tr class="bg-gray-50">
+                  <th class="w-40 h-24 border border-gray-300 relative align-top p-0">
+                    <div class="absolute left-0 top-0 w-full h-full" style="background: linear-gradient(to top right, transparent 49.4%, #d1d5db 50%, transparent 50.6%);"></div>
+                    <span class="absolute left-4 bottom-4 text-base font-bold">颜色</span>
+                    <span class="absolute right-4 top-3 text-base font-bold">尺码</span>
+                  </th>
+                  <th v-for="(col, colIdx) in formData.cols" :key="'header-' + col.id" class="min-w-[150px] h-24 border border-gray-300 bg-gray-50 px-3 group relative">
+                    <input :value="col.name" @input="updateColName(colIdx, $event)" class="w-full bg-transparent text-center text-2xl font-bold outline-none focus:text-blue-600" />
+                    <button @click="deleteCol(colIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
+                    <label class="absolute right-4 bottom-3 flex flex-col items-center gap-1 text-sm text-gray-600 font-medium">
+                      <span>行填充</span>
+                      <input type="checkbox" v-model="colSmartFill[col.id]" class="w-5 h-5" />
+                    </label>
+                  </th>
+                  <th class="min-w-[120px] h-24 border border-gray-300 bg-gray-50 text-lg font-bold">合计</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIdx) in formData.rows" :key="'row-' + row.id" class="group">
+                  <th class="w-40 h-20 border border-gray-300 bg-gray-50 px-4 relative">
+                    <input :value="row.name" @input="updateRowName(rowIdx, $event)" class="w-full bg-transparent text-center text-2xl font-bold outline-none focus:text-blue-600" />
+                    <button @click="deleteRow(rowIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
+                    <span v-if="rowSmartFill[row.id]" class="absolute left-2 top-2 w-6 h-6 rounded-full bg-blue-600 text-white text-sm flex items-center justify-center">{{ rowIdx + 1 }}</span>
+                  </th>
+                  <td v-for="col in formData.cols" :key="'cell-' + row.id + '-' + col.id" class="min-w-[150px] h-20 border border-gray-300 bg-white text-center">
+                    <input :value="getCellValue(row.id, col.id)" @input="updateCell(row.id, col.id, $event.target.value)" @focus="handleInputFocus" @keydown="handleCellKeyDown($event, row.id, col.id)" :data-row="row.id" :data-col="col.id" class="w-full h-full bg-transparent text-center text-2xl outline-none focus:bg-blue-50 focus:ring-2 focus:ring-blue-500" />
+                  </td>
+                  <td class="min-w-[120px] h-20 border border-gray-300 bg-gray-50 text-center text-xl font-bold">{{ colorTotals[row.id] || 0 }}</td>
+                </tr>
+                <tr>
+                  <th class="w-40 h-16 border border-gray-300 bg-gray-50 text-base font-bold">
+                    <label class="inline-flex flex-col items-center gap-1 text-gray-600">
+                      <span>列填充</span>
+                      <input type="checkbox" :checked="isAllRowFillEnabled" @change="toggleAllRowFill" class="w-5 h-5" />
+                    </label>
+                  </th>
+                  <td v-for="col in formData.cols" :key="'total-' + col.id" class="min-w-[150px] h-16 border border-gray-300 bg-gray-50 text-center text-xl font-bold">{{ getColTotal(col.id) }}</td>
+                  <td class="min-w-[120px] h-16 border border-gray-300 bg-blue-50 text-center text-xl font-bold text-blue-700">{{ totalPieces }}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
