@@ -5,109 +5,123 @@ import CuttingReport from './components/CuttingReport.tsx';
 import DataManager from './components/DataManager.tsx';
 import { getFormById } from './services/db.ts';
 
+type AppView = 'list' | 'create' | 'edit' | 'report';
+
 export default defineComponent({
   name: 'App',
   components: { FormList, FormEditor, CuttingReport, DataManager },
   data() {
     return {
-      view: 'list',
+      view: 'list' as AppView,
       selectedForm: undefined as any,
       showDataManagement: false,
-      listRefreshKey: 0
+      listRefreshKey: 0,
+      navigationSeq: 0
     };
   },
   mounted() {
-    this.updateViewFromUrl();
+    this.restoreFromHash();
     window.addEventListener('popstate', this.handlePopState);
-    window.addEventListener('hashchange', this.handleHashChange);
   },
   beforeDestroy() {
     window.removeEventListener('popstate', this.handlePopState);
-    window.removeEventListener('hashchange', this.handleHashChange);
   },
   methods: {
-    handlePopState() { this.updateViewFromUrl(); },
-    handleHashChange() { this.updateViewFromUrl(); },
+    handlePopState() {
+      this.restoreFromHash();
+    },
 
-    async updateViewFromUrl() {
-      try {
-        const path = window.location.hash.substring(1) || '/list';
-        if (path.startsWith('/create')) {
-          this.view = 'create';
-          this.selectedForm = undefined;
-          return;
-        }
-        if (path.startsWith('/edit/')) {
-          const id = path.split('/')[2];
-          const form = id ? await getFormById(id) : undefined;
-          if (form) {
-            this.selectedForm = form;
-            this.view = 'edit';
-          } else {
-            this.goToList(true);
-          }
-          return;
-        }
-        if (path.startsWith('/report/')) {
-          const id = path.split('/')[2];
-          const form = id ? await getFormById(id) : undefined;
-          if (form) {
-            this.selectedForm = form;
-            this.view = 'report';
-          } else {
-            this.goToList(true);
-          }
-          return;
-        }
-        this.goToList(false);
-      } catch (error) {
-        console.error('Error parsing URL:', error);
-        this.goToList(true);
+    setHash(path: string, replace = false) {
+      const hash = '#' + path;
+      if (window.location.hash === hash) return;
+      const state = { path };
+      if (replace) {
+        history.replaceState(state, '', hash);
+      } else {
+        history.pushState(state, '', hash);
       }
     },
 
-    updateUrl(view: string, formId?: string) {
-      let path = '/list';
-      if (view === 'create') path = '/create';
-      if (view === 'edit' && formId) path = '/edit/' + formId;
-      if (view === 'report' && formId) path = '/report/' + formId;
-      if (window.location.hash !== '#' + path) {
-        history.pushState({ view, formId }, '', '#' + path);
-      }
-    },
-
-    goToList(updateHash: boolean) {
-      this.view = 'list';
+    showList(replaceHash = true) {
+      this.navigationSeq++;
       this.selectedForm = undefined;
-      if (updateHash && window.location.hash !== '#/list') {
-        history.replaceState({ view: 'list' }, '', '#/list');
-      }
-      this.$nextTick(() => {
-        this.listRefreshKey++;
-      });
+      this.view = 'list';
+      this.listRefreshKey++;
+      if (replaceHash) this.setHash('/list', true);
     },
 
-    handleCreate() { this.selectedForm = undefined; this.view = 'create'; this.updateUrl('create'); },
-    handleEdit(form: any) { this.selectedForm = form; this.view = 'edit'; this.updateUrl('edit', form.id); },
-    handleReport(form: any) { this.selectedForm = form; this.view = 'report'; this.updateUrl('report', form.id); },
-    handleBack() {
-      this.goToList(true);
+    showCreate() {
+      this.navigationSeq++;
+      this.selectedForm = undefined;
+      this.view = 'create';
+      this.setHash('/create');
     },
+
+    showEdit(form: any, pushHash = true) {
+      this.navigationSeq++;
+      this.selectedForm = form;
+      this.view = 'edit';
+      if (pushHash && form && form.id) this.setHash('/edit/' + form.id);
+    },
+
+    showReport(form: any, pushHash = true) {
+      this.navigationSeq++;
+      this.selectedForm = form;
+      this.view = 'report';
+      if (pushHash && form && form.id) this.setHash('/report/' + form.id);
+    },
+
+    async restoreFromHash() {
+      const seq = ++this.navigationSeq;
+      const path = window.location.hash.substring(1) || '/list';
+
+      if (path === '/list' || path === '/') {
+        this.selectedForm = undefined;
+        this.view = 'list';
+        this.listRefreshKey++;
+        return;
+      }
+
+      if (path === '/create') {
+        this.selectedForm = undefined;
+        this.view = 'create';
+        return;
+      }
+
+      if (path.startsWith('/edit/') || path.startsWith('/report/')) {
+        const id = path.split('/')[2];
+        const targetView = path.startsWith('/edit/') ? 'edit' : 'report';
+        const form = id ? await getFormById(id) : undefined;
+        if (seq !== this.navigationSeq) return;
+        if (!form) {
+          this.showList(true);
+          return;
+        }
+        this.selectedForm = form;
+        this.view = targetView as AppView;
+        return;
+      }
+
+      this.showList(true);
+    },
+
+    handleCreate() { this.showCreate(); },
+    handleEdit(form: any) { this.showEdit(form); },
+    handleReport(form: any) { this.showReport(form); },
+    handleBack() { this.showList(true); },
 
     handleBackToEdit() {
       if (this.selectedForm) {
-        this.view = 'edit';
-        this.updateUrl('edit', this.selectedForm.id);
+        this.showEdit(this.selectedForm);
       } else {
-        this.goToList(true);
+        this.showList(true);
       }
     },
 
     handleSaveSuccess(updatedForm: any) {
       this.selectedForm = updatedForm;
       if (this.view === 'create') {
-        this.view = 'edit';
-        this.updateUrl('edit', updatedForm.id);
+        this.showEdit(updatedForm, true);
       }
     },
 
@@ -129,11 +143,29 @@ export default defineComponent({
         </div>
       </div>
 
-      <transition name="fade" mode="out-in">
-        <form-list v-if="view === 'list'" :key="'list-' + listRefreshKey" @create="handleCreate" @edit="handleEdit" @report="handleReport" />
-        <form-editor v-else-if="view === 'create' || view === 'edit'" :initial-data="selectedForm" @back="handleBack" @save="handleSaveSuccess" @report="handleReport" />
-        <cutting-report v-else-if="view === 'report'" :form="selectedForm" @back="handleBackToEdit" />
-      </transition>
+      <form-list
+        v-if="view === 'list'"
+        :key="'list-' + listRefreshKey"
+        @create="handleCreate"
+        @edit="handleEdit"
+        @report="handleReport"
+      />
+
+      <form-editor
+        v-else-if="view === 'create' || view === 'edit'"
+        :key="view + '-' + (selectedForm ? selectedForm.id : 'new')"
+        :initial-data="selectedForm"
+        @back="handleBack"
+        @save="handleSaveSuccess"
+        @report="handleReport"
+      />
+
+      <cutting-report
+        v-else-if="view === 'report'"
+        :key="'report-' + (selectedForm ? selectedForm.id : 'none')"
+        :form="selectedForm"
+        @back="handleBackToEdit"
+      />
 
       <data-manager v-model:show="showDataManagement" ref="dataManager" />
     </div>

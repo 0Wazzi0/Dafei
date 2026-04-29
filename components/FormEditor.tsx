@@ -1007,7 +1007,7 @@ export default defineComponent({
                     <input :value="col.name" @input="updateColName(colIdx, $event)" class="w-full bg-transparent text-center text-2xl font-bold outline-none focus:text-blue-600" />
                     <button @click="deleteCol(colIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
                     <label class="absolute right-4 bottom-3 flex flex-col items-center gap-1 text-sm text-gray-600 font-medium">
-                      <span>行填充</span>
+                      <span>列复制</span>
                       <input type="checkbox" v-model="colSmartFill[col.id]" class="w-5 h-5" />
                     </label>
                   </th>
@@ -1029,7 +1029,7 @@ export default defineComponent({
                 <tr>
                   <th class="w-40 h-16 border border-gray-300 bg-gray-50 text-base font-bold">
                     <label class="inline-flex flex-col items-center gap-1 text-gray-600">
-                      <span>列填充</span>
+                      <span>行复制</span>
                       <input type="checkbox" :checked="isAllRowFillEnabled" @change="toggleAllRowFill" class="w-5 h-5" />
                     </label>
                   </th>
