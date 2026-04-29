@@ -71,6 +71,9 @@ export default defineComponent({
       newSectionInput: '',
       rowSmartFill: {} as Record<string, boolean>,
       colSmartFill: {} as Record<string, boolean>,
+      amountInputMode: (this.initialData && this.initialData.totalAmount !== undefined && this.initialData.totalAmount !== '')
+        ? 'total'
+        : 'unit',
       // 历史记录
       customerHistory: [] as {value: string, lastUsed: number, count: number}[],
       styleNumberHistory: [] as {value: string, lastUsed: number, count: number}[],
@@ -244,11 +247,14 @@ export default defineComponent({
     },
     // 计算总金额
     calculatedTotalAmount(): number {
-      if (this.formData.totalAmount !== undefined) {
-        return this.formData.totalAmount;
+      const totalAmount = Number(this.formData.totalAmount);
+      const amountPerPiece = Number(this.formData.amountPerPiece);
+
+      if (this.amountInputMode === 'total' && Number.isFinite(totalAmount)) {
+        return totalAmount;
       }
-      if (this.formData.amountPerPiece !== undefined) {
-        return this.formData.amountPerPiece * this.totalPieces;
+      if (this.amountInputMode === 'unit' && Number.isFinite(amountPerPiece)) {
+        return amountPerPiece * this.totalPieces;
       }
       return 0;
     },
@@ -637,6 +643,21 @@ export default defineComponent({
       this.formData.cols[index].name = target.value;
     },
 
+    setAmountInputMode(mode: 'unit' | 'total') {
+      this.amountInputMode = mode;
+      if (mode === 'total') {
+        this.formData.amountPerPiece = undefined;
+      } else {
+        this.formData.totalAmount = undefined;
+      }
+    },
+
+    updateAmountValue(field: 'amountPerPiece' | 'totalAmount', event: Event) {
+      const target = event.target as HTMLInputElement;
+      const value = target.value === '' ? undefined : Number(target.value);
+      this.formData[field] = value !== undefined && Number.isFinite(value) ? value : undefined;
+    },
+
     goBackToList() {
       this.isPreviewing = false;
       this.showPrintDialog = false;
@@ -648,6 +669,12 @@ export default defineComponent({
     async saveForm() {
       this.saving = true;
       try {
+        if (this.amountInputMode === 'total') {
+          this.formData.amountPerPiece = undefined;
+        } else {
+          this.formData.totalAmount = undefined;
+        }
+
         const savedForm = JSON.parse(JSON.stringify({
           ...this.formData,
           updatedAt: Date.now()
@@ -962,6 +989,44 @@ export default defineComponent({
             </div>
           </div>
 
+          <div class="border border-gray-200 rounded-xl bg-white px-8 py-7 mb-10">
+            <div class="flex flex-wrap items-center justify-between gap-6 mb-6">
+              <div>
+                <h3 class="text-xl font-bold text-gray-900">金额输入</h3>
+                <p class="text-sm text-gray-500 mt-1">选择按总价或按单价计算最终金额</p>
+              </div>
+              <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                <button type="button" @click="setAmountInputMode('unit')" :class="amountInputMode === 'unit' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-white'" class="h-10 px-5 rounded-md text-base font-medium transition">输入单价</button>
+                <button type="button" @click="setAmountInputMode('total')" :class="amountInputMode === 'total' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-white'" class="h-10 px-5 rounded-md text-base font-medium transition">输入总价</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-6">
+              <div>
+                <label class="block text-sm font-bold text-gray-600 mb-2">订单数量</label>
+                <div class="h-12 px-4 rounded-lg border border-gray-200 bg-gray-50 flex items-center text-2xl font-bold text-gray-900">{{ totalPieces }}</div>
+              </div>
+              <div v-if="amountInputMode === 'unit'">
+                <label class="block text-sm font-bold text-gray-600 mb-2">单价金额 (元)</label>
+                <input :value="formData.amountPerPiece ?? ''" @input="updateAmountValue('amountPerPiece', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
+              </div>
+              <div v-else>
+                <label class="block text-sm font-bold text-gray-600 mb-2">总价金额 (元)</label>
+                <input :value="formData.totalAmount ?? ''" @input="updateAmountValue('totalAmount', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-gray-600 mb-2">计算方式</label>
+                <div class="h-12 px-4 rounded-lg border border-gray-200 bg-gray-50 flex items-center text-lg font-medium text-gray-700">
+                  {{ amountInputMode === 'total' ? '总价直接作为最终金额' : '单价 x 订单数量' }}
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-bold text-gray-600 mb-2">最终金额</label>
+                <div class="h-12 px-4 rounded-lg border border-blue-200 bg-blue-50 flex items-center text-2xl font-bold text-blue-700">¥{{ calculatedTotalAmount.toFixed(2) }}</div>
+              </div>
+            </div>
+          </div>
+
           <div class="border border-gray-200 rounded-xl bg-gray-50 px-8 py-7 mb-10">
             <div class="grid grid-cols-2 gap-10 divide-x divide-gray-200">
               <div class="pr-10">
@@ -1003,12 +1068,12 @@ export default defineComponent({
                     <span class="absolute left-4 bottom-4 text-base font-bold">颜色</span>
                     <span class="absolute right-4 top-3 text-base font-bold">尺码</span>
                   </th>
-                  <th v-for="(col, colIdx) in formData.cols" :key="'header-' + col.id" class="min-w-[150px] h-24 border border-gray-300 bg-gray-50 px-3 group relative">
+                  <th v-for="(col, colIdx) in formData.cols" :key="'header-' + col.id" class="w-[112px] min-w-[112px] max-w-[112px] h-24 border border-gray-300 bg-gray-50 px-3 group relative">
                     <input :value="col.name" @input="updateColName(colIdx, $event)" class="w-full bg-transparent text-center text-2xl font-bold outline-none focus:text-blue-600" />
                     <button @click="deleteCol(colIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
                     <label class="absolute right-4 bottom-3 flex flex-col items-center gap-1 text-sm text-gray-600 font-medium">
-                      <span>列复制</span>
-                      <input type="checkbox" v-model="colSmartFill[col.id]" class="w-5 h-5" />
+                      <span>列复制<input type="checkbox" v-model="colSmartFill[col.id]" class="w-5 h-5" /></span>
+                      
                     </label>
                   </th>
                   <th class="min-w-[120px] h-24 border border-gray-300 bg-gray-50 text-lg font-bold">合计</th>
@@ -1021,7 +1086,7 @@ export default defineComponent({
                     <button @click="deleteRow(rowIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
                     <span v-if="rowSmartFill[row.id]" class="absolute left-2 top-2 w-6 h-6 rounded-full bg-blue-600 text-white text-sm flex items-center justify-center">{{ rowIdx + 1 }}</span>
                   </th>
-                  <td v-for="col in formData.cols" :key="'cell-' + row.id + '-' + col.id" class="min-w-[150px] h-20 border border-gray-300 bg-white text-center">
+                  <td v-for="col in formData.cols" :key="'cell-' + row.id + '-' + col.id" class="w-[112px] min-w-[112px] max-w-[112px] h-20 border border-gray-300 bg-white text-center">
                     <input :value="getCellValue(row.id, col.id)" @input="updateCell(row.id, col.id, $event.target.value)" @focus="handleInputFocus" @keydown="handleCellKeyDown($event, row.id, col.id)" :data-row="row.id" :data-col="col.id" class="w-full h-full bg-transparent text-center text-2xl outline-none focus:bg-blue-50 focus:ring-2 focus:ring-blue-500" />
                   </td>
                   <td class="min-w-[120px] h-20 border border-gray-300 bg-gray-50 text-center text-xl font-bold">{{ colorTotals[row.id] || 0 }}</td>
@@ -1029,11 +1094,10 @@ export default defineComponent({
                 <tr>
                   <th class="w-40 h-16 border border-gray-300 bg-gray-50 text-base font-bold">
                     <label class="inline-flex flex-col items-center gap-1 text-gray-600">
-                      <span>行复制</span>
-                      <input type="checkbox" :checked="isAllRowFillEnabled" @change="toggleAllRowFill" class="w-5 h-5" />
+                      <span>行复制<input type="checkbox" :checked="isAllRowFillEnabled" @change="toggleAllRowFill" class="w-5 h-5" /></span>
                     </label>
                   </th>
-                  <td v-for="col in formData.cols" :key="'total-' + col.id" class="min-w-[150px] h-16 border border-gray-300 bg-gray-50 text-center text-xl font-bold">{{ getColTotal(col.id) }}</td>
+                  <td v-for="col in formData.cols" :key="'total-' + col.id" class="w-[112px] min-w-[112px] max-w-[112px] h-16 border border-gray-300 bg-gray-50 text-center text-xl font-bold">{{ getColTotal(col.id) }}</td>
                   <td class="min-w-[120px] h-16 border border-gray-300 bg-blue-50 text-center text-xl font-bold text-blue-700">{{ totalPieces }}</td>
                 </tr>
               </tbody>

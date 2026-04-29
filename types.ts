@@ -16,6 +16,8 @@ export interface CuttingForm {
   cols: MatrixHeader[]; // Sizes (Horizontal axis)
   // Data stored as key: `${rowId}_${colId}` -> quantity
   data: Record<string, number>;
+  amountPerPiece?: number; // 单价金额
+  totalAmount?: number; // 直接输入的总金额
 }
 
 export type ViewMode = 'list' | 'edit' | 'create';
