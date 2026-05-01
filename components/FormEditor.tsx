@@ -12,11 +12,24 @@ import {
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const DEFAULT_COLORS = ['红', '绿', '蓝', '黑', '白', '黄', '藏青', '灰'];
 const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-const DEFAULT_SECTIONS = ['袖子', '前幅', '后幅', '领子', '口袋', '里布'];
+const DEFAULT_SECTIONS = ['袖口', '前幅', '后幅'];
 
 const getStoredPool = (key: string, defaults: string[]) => {
   const stored = localStorage.getItem(key);
   return stored ? JSON.parse(stored) : [...defaults];
+};
+
+const getStoredSectionPool = () => {
+  const stored = localStorage.getItem('pool_sections');
+  if (!stored) return [...DEFAULT_SECTIONS];
+
+  const pool = JSON.parse(stored);
+  if (localStorage.getItem('pool_sections_v2') === '1') return pool;
+
+  const migratedPool = [...pool, ...DEFAULT_SECTIONS.filter((item) => !pool.includes(item))];
+  localStorage.setItem('pool_sections', JSON.stringify(migratedPool));
+  localStorage.setItem('pool_sections_v2', '1');
+  return migratedPool;
 };
 
 const saveStoredPool = (key: string, pool: string[]) => {
@@ -64,7 +77,7 @@ export default defineComponent({
       dragOverItem: null as number | null,
       commonColors: getStoredPool('pool_colors', DEFAULT_COLORS) as string[],
       commonSizes: getStoredPool('pool_sizes', DEFAULT_SIZES) as string[],
-      commonSections: getStoredPool('pool_sections', DEFAULT_SECTIONS) as string[],
+      commonSections: getStoredSectionPool() as string[],
       selectedSections: [] as string[],
       newColorInput: '',
       newSizeInput: '',
@@ -320,6 +333,9 @@ export default defineComponent({
       if (name && !this.commonSections.includes(name)) {
         this.commonSections.push(name);
         saveStoredPool('pool_sections', this.commonSections);
+      }
+      if (name && !this.selectedSections.includes(name)) {
+        this.selectedSections.push(name);
       }
       this.newSectionInput = '';
     },
@@ -700,12 +716,7 @@ export default defineComponent({
 
     // 新增方法：打印订单
     printOrder() {
-      if (this.totalBundles === 0) {
-        alert('表格中没有可打印的扎号。');
-        return;
-      }
-      this.isPreviewing = true;
-      window.scrollTo(0, 0);
+      this.openPrintDialog();
     },
     
     // 计算属性
@@ -770,59 +781,10 @@ export default defineComponent({
     },
     
     get filteredLabels() {
-      if (!this.formData) {
-        return [];
-      }
-      // 如果未启用选择模式，返回所有标签
       if (!this.selectMode || this.selectedBundles.length === 0) {
-        const labels = [];
-        this.formData.rows.forEach((row: MatrixHeader) => {
-          this.formData.cols.forEach((col: MatrixHeader) => {
-            const qty = this.formData.data[`${row.id}_${col.id}`];
-            if (qty) {
-              labels.push({
-                id: `${row.id}_${col.id}`,
-                styleNumber: this.formData.styleNumber,
-                bedNumber: this.formData.bedNumber,
-                color: row.name,
-                size: col.name,
-                qty,
-                bundleNo: this.bundleMap.get(`${row.id}_${col.id}`),
-                totalPage: this.totalPieces,
-                currentPage: labels.length + 1,
-                section: this.selectedSections.length > 0 ? this.selectedSections.join(',') : undefined
-              });
-            }
-          });
-        });
-        return labels;
+        return this.labels;
       }
-
-      // 如果启用了选择模式，只返回选定的扎号
-      const selectedLabels = [];
-      this.formData.rows.forEach((row: MatrixHeader) => {
-        this.formData.cols.forEach((col: MatrixHeader) => {
-          const bundleNo = this.bundleMap.get(`${row.id}_${col.id}`);
-          if (bundleNo && this.selectedBundles.includes(bundleNo)) {
-            const qty = this.formData.data[`${row.id}_${col.id}`];
-            if (qty) {
-              selectedLabels.push({
-                id: `${row.id}_${col.id}`,
-                styleNumber: this.formData.styleNumber,
-                bedNumber: this.formData.bedNumber,
-                color: row.name,
-                size: col.name,
-                qty,
-                bundleNo,
-                totalPage: this.totalPieces,
-                currentPage: this.selectedBundles.indexOf(bundleNo) + 1,
-                section: this.selectedSections.length > 0 ? this.selectedSections.join(',') : undefined
-              });
-            }
-          }
-        });
-      });
-      return selectedLabels;
+      return this.labels.filter(label => this.selectedBundles.includes(label.bundleNo));
     }
   },
   template: `
@@ -910,6 +872,77 @@ export default defineComponent({
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Print Details Dialog -->
+    <div v-if="showPrintDialog" class="fixed inset-0 z-40 bg-black/40 flex items-center justify-center px-4 no-print">
+      <div class="w-full max-w-3xl bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900">打印详情</h3>
+            <p class="text-sm text-gray-500 mt-1">选择打印模式和需要打印的部位</p>
+          </div>
+          <button @click="showPrintDialog = false" class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 text-xl leading-none">x</button>
+        </div>
+
+        <div class="p-6">
+          <div class="grid grid-cols-2 gap-3 mb-6">
+            <button
+              type="button"
+              @click="printMode = 'direct'"
+              :class="printMode === 'direct' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700'"
+              class="h-14 rounded-lg border text-lg font-bold hover:border-blue-300 transition"
+            >
+              默认模式
+            </button>
+            <button
+              type="button"
+              @click="printMode = 'sectional'"
+              :class="printMode === 'sectional' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700'"
+              class="h-14 rounded-lg border text-lg font-bold hover:border-blue-300 transition"
+            >
+              部位选择模式
+            </button>
+          </div>
+
+          <div v-if="printMode === 'sectional'" class="border border-gray-200 rounded-xl bg-gray-50 p-5">
+            <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-5">
+              <div>
+                <h4 class="text-lg font-bold text-gray-900">部位选择池</h4>
+                <p class="text-sm text-gray-500 mt-1">点击选择，右键从池中移除。打印顺序按选中的部位依次输出。</p>
+              </div>
+              <span class="text-sm text-gray-500">已选 {{ selectedSections.length }} 个</span>
+            </div>
+
+            <div class="flex flex-wrap gap-3 mb-5">
+              <button
+                v-for="section in commonSections"
+                :key="'section-pool-' + section"
+                type="button"
+                @click="toggleSectionSelection(section)"
+                @contextmenu.prevent="removeFromPool('section', section)"
+                :class="selectedSections.includes(section) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-900'"
+                class="min-w-[74px] h-12 px-5 border rounded-lg text-lg font-bold hover:border-blue-300 shadow-sm transition"
+              >
+                {{ section }}
+              </button>
+            </div>
+
+            <div class="flex gap-3">
+              <input v-model="newSectionInput" @keyup.enter="addToPoolSection" type="text" placeholder="添加新部位..." class="flex-1 h-12 px-4 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
+              <button @click="addToPoolSection" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-5 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+          <button @click="showPrintDialog = false" class="h-11 px-5 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 font-medium">取消</button>
+          <button @click="confirmPrint" class="h-11 px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium flex items-center gap-2">
+            <icon-printer :size="18" />
+            打印预览
+          </button>
         </div>
       </div>
     </div>
