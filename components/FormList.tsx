@@ -110,19 +110,26 @@ export default defineComponent({
     calculateOrderAmount(form: any) {
       const totalQty = this.calculateTotal(form.data);
       const amountPerPiece = Number(form.amountPerPiece);
-      const additionalFee = Number(form.additionalFee) || 0;
       if (Number.isFinite(amountPerPiece)) {
-        return amountPerPiece * totalQty + additionalFee;
+        return amountPerPiece * totalQty;
       }
       if (form.totalAmount !== undefined) {
         return Number(form.totalAmount) || 0;
       }
-      return additionalFee;
+      return 0;
     },
     
     formatDate(timestamp: number) {
       const d = new Date(timestamp);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    buildExcelFileName() {
+      const search = this.searchQuery.trim().replace(/[\\/:*?"<>|]/g, '_');
+      const dateRange = [this.startDate, this.endDate].filter(Boolean).join('_');
+      const nameParts = ['订单记录', search, dateRange].filter(Boolean);
+      const baseName = nameParts.join('_') || `订单记录_${this.formatDate(Date.now())}`;
+      return baseName.toLowerCase().endsWith('.xlsx') ? baseName : `${baseName}.xlsx`;
     },
 
     exportToExcel() {
@@ -174,8 +181,8 @@ export default defineComponent({
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "订单导出");
       
-      const fileName = `订单记录_${this.formatDate(Date.now())}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+      const fileName = this.buildExcelFileName();
+      XLSX.writeFile(wb, fileName, { bookType: 'xlsx' });
     },
 
     handleCreate() {
@@ -367,6 +374,8 @@ export default defineComponent({
     </div>
   `
 });
+
+
 
 
 

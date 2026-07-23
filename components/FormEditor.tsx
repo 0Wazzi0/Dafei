@@ -263,8 +263,7 @@ export default defineComponent({
     // 计算总金额
     calculatedTotalAmount(): number {
       const amountPerPiece = Number(this.formData.amountPerPiece) || 0;
-      const additionalFee = Number(this.formData.additionalFee) || 0;
-      return amountPerPiece * this.totalPieces + additionalFee;
+      return amountPerPiece * this.totalPieces;
     },
     isAllRowFillEnabled(): boolean {
       return this.formData.rows.length > 0 && this.formData.rows.every((r: MatrixHeader) => this.rowSmartFill[r.id]);
@@ -1018,7 +1017,7 @@ export default defineComponent({
             <div class="flex flex-wrap items-center justify-between gap-6 mb-6">
               <div>
                 <h3 class="text-xl font-bold text-gray-900">金额输入</h3>
-                <p class="text-sm text-gray-500 mt-1">最终金额 = 单价 x 订单数量 + 附加费用</p>
+                <p class="text-sm text-gray-500 mt-1">总金额 = 单价 x 订单数量</p>
               </div>
             </div>
 
@@ -1032,12 +1031,12 @@ export default defineComponent({
                 <input :value="formData.amountPerPiece ?? ''" @input="updateAmountValue('amountPerPiece', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
               </div>
               <div>
-                <label class="block text-sm font-bold text-gray-600 mb-2">附加费用 (元)</label>
-                <input :value="formData.additionalFee ?? 0" @input="updateAmountValue('additionalFee', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
+                <label class="block text-sm font-bold text-gray-600 mb-2">总金额</label>
+                <div class="h-12 px-4 rounded-lg border border-blue-200 bg-blue-50 flex items-center text-2xl font-bold text-blue-700">¥{{ calculatedTotalAmount.toFixed(2) }}</div>
               </div>
               <div>
-                <label class="block text-sm font-bold text-gray-600 mb-2">最终金额</label>
-                <div class="h-12 px-4 rounded-lg border border-blue-200 bg-blue-50 flex items-center text-2xl font-bold text-blue-700">¥{{ calculatedTotalAmount.toFixed(2) }}</div>
+                <label class="block text-sm font-bold text-gray-600 mb-2">其他费用 (元)</label>
+                <input :value="formData.additionalFee ?? 0" @input="updateAmountValue('additionalFee', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
               </div>
             </div>
           </div>
@@ -1128,4 +1127,6 @@ export default defineComponent({
     </div>
   `
 });
+
+
 
