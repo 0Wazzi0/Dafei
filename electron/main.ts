@@ -1,6 +1,9 @@
-import { app, BrowserWindow } from 'electron';
+﻿import { app, BrowserWindow } from 'electron';
 import { existsSync } from 'fs';
 import { join } from 'path';
+
+// Keep using the original app data directory so IndexedDB survives package/name changes.
+app.setPath('userData', join(app.getPath('appData'), 'Dafei'));
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -129,3 +132,4 @@ if (!gotTheLock) {
     }
   });
 }
+

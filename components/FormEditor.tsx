@@ -1,4 +1,4 @@
-
+﻿
 import { defineComponent } from 'vue';
 import { saveFormToDB, getLastBedNumber, getUniqueCustomers, getUniqueStyleNumbers, removeFromHistory, getHiddenHistory } from '../services/db.ts';
 import { CuttingForm, MatrixHeader } from '../types.ts';
@@ -54,7 +54,7 @@ export default defineComponent({
   data() {
     return {
       formData: (this.initialData 
-        ? JSON.parse(JSON.stringify(this.initialData)) 
+        ? { additionalFee: 0, remark: '', ...JSON.parse(JSON.stringify(this.initialData)) } 
         : {
             id: generateId(),
             styleNumber: '',
@@ -66,6 +66,8 @@ export default defineComponent({
             cols: [] as MatrixHeader[],
             data: {} as Record<string, number>,
             amountPerPiece: undefined,
+            additionalFee: 0,
+            remark: '',
             totalAmount: undefined
           }) as CuttingForm,
       saving: false,
@@ -260,16 +262,9 @@ export default defineComponent({
     },
     // 计算总金额
     calculatedTotalAmount(): number {
-      const totalAmount = Number(this.formData.totalAmount);
-      const amountPerPiece = Number(this.formData.amountPerPiece);
-
-      if (this.amountInputMode === 'total' && Number.isFinite(totalAmount)) {
-        return totalAmount;
-      }
-      if (this.amountInputMode === 'unit' && Number.isFinite(amountPerPiece)) {
-        return amountPerPiece * this.totalPieces;
-      }
-      return 0;
+      const amountPerPiece = Number(this.formData.amountPerPiece) || 0;
+      const additionalFee = Number(this.formData.additionalFee) || 0;
+      return amountPerPiece * this.totalPieces + additionalFee;
     },
     isAllRowFillEnabled(): boolean {
       return this.formData.rows.length > 0 && this.formData.rows.every((r: MatrixHeader) => this.rowSmartFill[r.id]);
@@ -668,7 +663,7 @@ export default defineComponent({
       }
     },
 
-    updateAmountValue(field: 'amountPerPiece' | 'totalAmount', event: Event) {
+    updateAmountValue(field: 'amountPerPiece' | 'additionalFee' | 'totalAmount', event: Event) {
       const target = event.target as HTMLInputElement;
       const value = target.value === '' ? undefined : Number(target.value);
       this.formData[field] = value !== undefined && Number.isFinite(value) ? value : undefined;
@@ -685,11 +680,8 @@ export default defineComponent({
     async saveForm() {
       this.saving = true;
       try {
-        if (this.amountInputMode === 'total') {
-          this.formData.amountPerPiece = undefined;
-        } else {
-          this.formData.totalAmount = undefined;
-        }
+        this.formData.additionalFee = Number(this.formData.additionalFee) || 0;
+        this.formData.totalAmount = undefined;
 
         const savedForm = JSON.parse(JSON.stringify({
           ...this.formData,
@@ -789,7 +781,7 @@ export default defineComponent({
   },
   template: `
     <!-- Thermal Label Preview Interface -->
-    <div v-if="isPreviewing" class="fixed inset-0 bg-white z-50 overflow-auto p-6 print:bg-transparent print:p-0 print:z-0">
+    <div v-if="isPreviewing" class="print-preview-shell fixed inset-0 bg-white z-50 overflow-auto p-6 print:bg-transparent print:p-0 print:z-0">
       <!-- Actual Thermal Label Print Output -->
       <div class="thermal-print-root hidden print:block" :style="printStyleVars">
         <div v-for="label in filteredLabels" :key="'print-'+label.id" class="print-label">
@@ -1022,15 +1014,11 @@ export default defineComponent({
             </div>
           </div>
 
-          <div class="border border-gray-200 rounded-xl bg-white px-8 py-7 mb-10">
+          <div class="border border-gray-200 rounded-xl bg-white px-8 py-7 mb-6">
             <div class="flex flex-wrap items-center justify-between gap-6 mb-6">
               <div>
                 <h3 class="text-xl font-bold text-gray-900">金额输入</h3>
-                <p class="text-sm text-gray-500 mt-1">选择按总价或按单价计算最终金额</p>
-              </div>
-              <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                <button type="button" @click="setAmountInputMode('unit')" :class="amountInputMode === 'unit' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-white'" class="h-10 px-5 rounded-md text-base font-medium transition">输入单价</button>
-                <button type="button" @click="setAmountInputMode('total')" :class="amountInputMode === 'total' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-700 hover:bg-white'" class="h-10 px-5 rounded-md text-base font-medium transition">输入总价</button>
+                <p class="text-sm text-gray-500 mt-1">最终金额 = 单价 x 订单数量 + 附加费用</p>
               </div>
             </div>
 
@@ -1039,25 +1027,24 @@ export default defineComponent({
                 <label class="block text-sm font-bold text-gray-600 mb-2">订单数量</label>
                 <div class="h-12 px-4 rounded-lg border border-gray-200 bg-gray-50 flex items-center text-2xl font-bold text-gray-900">{{ totalPieces }}</div>
               </div>
-              <div v-if="amountInputMode === 'unit'">
+              <div>
                 <label class="block text-sm font-bold text-gray-600 mb-2">单价金额 (元)</label>
                 <input :value="formData.amountPerPiece ?? ''" @input="updateAmountValue('amountPerPiece', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
               </div>
-              <div v-else>
-                <label class="block text-sm font-bold text-gray-600 mb-2">总价金额 (元)</label>
-                <input :value="formData.totalAmount ?? ''" @input="updateAmountValue('totalAmount', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
-              </div>
               <div>
-                <label class="block text-sm font-bold text-gray-600 mb-2">计算方式</label>
-                <div class="h-12 px-4 rounded-lg border border-gray-200 bg-gray-50 flex items-center text-lg font-medium text-gray-700">
-                  {{ amountInputMode === 'total' ? '总价直接作为最终金额' : '单价 x 订单数量' }}
-                </div>
+                <label class="block text-sm font-bold text-gray-600 mb-2">附加费用 (元)</label>
+                <input :value="formData.additionalFee ?? 0" @input="updateAmountValue('additionalFee', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
               </div>
               <div>
                 <label class="block text-sm font-bold text-gray-600 mb-2">最终金额</label>
                 <div class="h-12 px-4 rounded-lg border border-blue-200 bg-blue-50 flex items-center text-2xl font-bold text-blue-700">¥{{ calculatedTotalAmount.toFixed(2) }}</div>
               </div>
             </div>
+          </div>
+
+          <div class="border border-gray-200 rounded-xl bg-white px-8 py-7 mb-10">
+            <label class="block text-sm font-bold text-gray-600 mb-2">订单备注</label>
+            <textarea v-model="formData.remark" rows="3" class="w-full px-4 py-3 rounded-lg border border-gray-200 bg-white text-lg text-gray-900 focus:border-blue-500 focus:ring-0 outline-none resize-y" placeholder="手动添加备注，不会打印在标签上"></textarea>
           </div>
 
           <div class="border border-gray-200 rounded-xl bg-gray-50 px-8 py-7 mb-10">
@@ -1141,3 +1128,4 @@ export default defineComponent({
     </div>
   `
 });
+

@@ -1,9 +1,9 @@
-
+﻿
 import { defineComponent } from 'vue';
 import { getFormsFromDB, deleteFormFromDB } from '../services/db.ts';
 import { IconPlus, IconEdit, IconFileText, IconLoader2, IconTrash2, IconSearch, IconDownload, IconClipboard } from './Icons.ts';
 
-// 声明全局 XLSX 变量，避免 TS 报错
+// 澹版槑鍏ㄥ眬 XLSX 鍙橀噺锛岄伩鍏?TS 鎶ラ敊
 declare const XLSX: any;
 
 export default defineComponent({
@@ -18,7 +18,7 @@ export default defineComponent({
       searchQuery: '',
       startDate: '',
       endDate: '',
-      // 分页相关
+      // 鍒嗛〉鐩稿叧
       currentPage: 1,
       pageSize: 10
     };
@@ -27,14 +27,15 @@ export default defineComponent({
     filteredForms() {
       const query = this.searchQuery.trim().toLowerCase();
       const start = this.startDate ? new Date(this.startDate).getTime() : 0;
-      const end = this.endDate ? new Date(this.endDate).getTime() + 86400000 : Infinity; // 包含结束当天
+      const end = this.endDate ? new Date(this.endDate).getTime() + 86400000 : Infinity; // 鍖呭惈缁撴潫褰撳ぉ
       
       return this.forms.filter(form => {
         const style = (form.styleNumber || '').toLowerCase();
         const customer = (form.customer || '').toLowerCase();
+        const remark = (form.remark || '').toLowerCase();
         const time = form.createdAt || 0;
         
-        const matchesSearch = !query || style.includes(query) || customer.includes(query);
+        const matchesSearch = !query || style.includes(query) || customer.includes(query) || remark.includes(query);
         const matchesTime = time >= start && time <= end;
         
         return matchesSearch && matchesTime;
@@ -48,12 +49,10 @@ export default defineComponent({
       return this.filteredForms.slice(start, end);
     },
     
-    // 总页数
     totalPages() {
       return Math.ceil(this.filteredForms.length / this.pageSize);
     },
     
-    // 当前页显示的数据范围
     showingRange() {
       if (this.filteredForms.length === 0) return '共 0 条';
       const start = (this.currentPage - 1) * this.pageSize + 1;
@@ -77,7 +76,7 @@ export default defineComponent({
       }
     },
     
-    // 翻页方法
+    // 缈婚〉鏂规硶
     goToPage(page: number) {
       if (page < 1 || page > this.totalPages) return;
       this.currentPage = page;
@@ -107,16 +106,18 @@ export default defineComponent({
       return Object.values(data).reduce((a: number, b: any) => a + (Number(b) || 0), 0);
     },
     
-    // 计算订单金额
+    // 璁＄畻璁㈠崟閲戦
     calculateOrderAmount(form: any) {
       const totalQty = this.calculateTotal(form.data);
+      const amountPerPiece = Number(form.amountPerPiece);
+      const additionalFee = Number(form.additionalFee) || 0;
+      if (Number.isFinite(amountPerPiece)) {
+        return amountPerPiece * totalQty + additionalFee;
+      }
       if (form.totalAmount !== undefined) {
-        return form.totalAmount;
+        return Number(form.totalAmount) || 0;
       }
-      if (form.amountPerPiece !== undefined) {
-        return form.amountPerPiece * totalQty;
-      }
-      return 0;
+      return additionalFee;
     },
     
     formatDate(timestamp: number) {
@@ -126,11 +127,10 @@ export default defineComponent({
 
     exportToExcel() {
       if (this.filteredForms.length === 0) {
-        alert("没有可导出的数据，请检查筛选条件。");
+        alert('没有可导出的数据，请检查筛选条件。');
         return;
       }
 
-      // 构建数据行
       const dataRows = this.filteredForms.map((form, index) => {
         const totalQty = this.calculateTotal(form.data);
         const totalAmount = this.calculateOrderAmount(form);
@@ -140,37 +140,37 @@ export default defineComponent({
           form.styleNumber || '-',
           form.customer || '-',
           totalQty,
-          form.amountPerPiece || "", // 单价金额
-          totalAmount, // 总金额
-          form.totalAmount || "" // 如果直接设置了总金额，则显示
+          form.amountPerPiece || "",
+          form.additionalFee || 0,
+          totalAmount,
+          form.remark || ""
         ];
       });
 
-      // 创建工作表
       const ws = XLSX.utils.aoa_to_sheet([
         ["青蓝服装裁剪工作室"],
-        ["编号", "下单日期", "款号", "客户", "订单总数", "单价金额", "总金额", "备注金额"],
+        ["编号", "下单日期", "款号", "客户", "订单总数", "单价金额", "附加费用", "总金额", "备注"],
         ...dataRows
       ]);
 
-      // 合并第一行的大标题
       ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }
       ];
 
-      // 设置列宽
+      // 璁剧疆鍒楀
       ws['!cols'] = [
-        { wch: 8 },  // 编号
-        { wch: 15 }, // 下单日期
-        { wch: 15 }, // 款号
-        { wch: 20 }, // 客户
-        { wch: 12 }, // 订单总数
-        { wch: 10 }, // 单价金额
-        { wch: 12 }, // 总金额
-        { wch: 12 }  // 备注金额
+        { wch: 8 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 10 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 24 }
       ];
 
-      // 创建工作簿并下载
+      // 鍒涘缓宸ヤ綔绨垮苟涓嬭浇
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "订单导出");
       
@@ -196,8 +196,7 @@ export default defineComponent({
             class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 font-semibold shadow-lg shadow-blue-600/20 transition-all transform hover:scale-105 whitespace-nowrap"
           >
             <icon-plus :size="20" />
-            新建裁床单
-          </button>
+            新建裁床单          </button>
         </div>
 
         <!-- Toolbar: Filters & Export -->
@@ -314,7 +313,9 @@ export default defineComponent({
                     <icon-trash2 :size="16" />
                   </button>
                 </div>
+                <div v-if="form.remark" class="col-span-12 -mt-2 text-sm text-gray-500 truncate" :title="form.remark">备注：{{ form.remark }}</div>
               </div>
+
             </div>
           </div>
           
@@ -330,8 +331,7 @@ export default defineComponent({
                 :disabled="currentPage === 1"
                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                上一页
-              </button>
+                上一页              </button>
               
               <!-- Page Numbers -->
               <div class="flex items-center gap-1">
@@ -359,8 +359,7 @@ export default defineComponent({
                 :disabled="currentPage === totalPages"
                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                下一页
-              </button>
+                下一页              </button>
             </div>
           </div>
         </div>
@@ -368,3 +367,11 @@ export default defineComponent({
     </div>
   `
 });
+
+
+
+
+
+
+
+

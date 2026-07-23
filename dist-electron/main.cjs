@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
 const path_1 = require("path");
+// Keep using the original app data directory so IndexedDB survives package/name changes.
+electron_1.app.setPath('userData', (0, path_1.join)(electron_1.app.getPath('appData'), 'Dafei'));
 let mainWindow = null;
 // 请求单实例锁
 const gotTheLock = electron_1.app.requestSingleInstanceLock();

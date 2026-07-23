@@ -22,12 +22,15 @@
         html, body {
           margin: 0 !important;
           padding: 0 !important;
-          height: 100%;
+          height: auto !important;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
         body {
           background: white;
+        }
+        .print-preview-shell > :not(.thermal-print-root) {
+          display: none !important;
         }
         body * {
           visibility: hidden !important;
@@ -36,13 +39,22 @@
         .thermal-print-root * {
           visibility: visible !important;
         }
+        .print-preview-shell {
+          position: static !important;
+          inset: auto !important;
+          width: auto !important;
+          height: auto !important;
+          min-height: 0 !important;
+          overflow: visible !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          background: transparent !important;
+        }
         .thermal-print-root {
           display: block !important;
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 40mm !important;
-          min-height: 80mm !important;
+          position: static !important;
+          width: var(--paper-width, 40mm) !important;
+          min-height: var(--paper-height, 80mm) !important;
           margin: 0 !important;
           padding: 0 !important;
         }
@@ -50,11 +62,14 @@
           display: none !important;
         }
         .print-label {
-          width: 40mm;
-          height: 80mm;
+          width: var(--paper-width, 40mm);
+          height: var(--paper-height, 80mm);
           padding: calc(var(--print-padding, 8px) / 3);
           box-sizing: border-box;
           page-break-after: always;
+          break-after: page;
+          page-break-inside: avoid;
+          break-inside: avoid-page;
           display: flex;
           flex-direction: column;
           font-family: sans-serif;
@@ -62,13 +77,18 @@
           overflow: hidden;
           gap: calc(var(--print-gap, 10px) / 3);
         }
+        .print-label:last-child {
+          page-break-after: auto;
+          break-after: auto;
+        }
         .label-content {
           height: 100%;
-          padding: var(--print-padding, 8px);
+          padding: var(--print-padding, 8px) var(--print-padding, 8px) calc(var(--print-padding, 8px) + 10px);
           display: flex;
           flex-direction: column;
-          font-size: var(--print-font-size, 14px);
+          font-size: var(--print-font-size, 18px);  /* 增大字体 */
           line-height: calc(var(--print-line-spacing, 1.2) * 1em);
+          box-sizing: border-box;
         }
         
         /* 移除浏览器默认页眉页脚 */
@@ -105,8 +125,8 @@
         background: #e2e8f0;
       }
       .label-preview-card {
-        width: calc(var(--paper-width, 40) * 1mm);
-        height: calc(var(--paper-height, 80) * 1mm);
+        width: var(--paper-width, 40mm);
+        height: var(--paper-height, 80mm);
         background: white;
         box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
         padding: calc(var(--print-padding, 8px) / 1.5);
@@ -116,11 +136,12 @@
       }
       .label-inner {
         height: 100%;
-        padding: var(--print-padding, 8px);
+        padding: var(--print-padding, 8px) var(--print-padding, 8px) calc(var(--print-padding, 8px) + 10px);
         display: flex;
         flex-direction: column;
-        font-size: var(--print-font-size, 9px);
+        font-size: var(--print-font-size, 18px);  /* 增大预览字体 */
         line-height: calc(var(--print-line-spacing, 1.3) * 1em);
+        box-sizing: border-box;
       }
       .label-header {
         text-align: center;
@@ -128,7 +149,7 @@
         border-bottom: 1px solid black;
         margin-bottom: 1mm;
         padding-bottom: 0.5mm;
-        font-size: 11px;
+        font-size: 14px;
       }
       .label-row {
         display: flex;
@@ -141,7 +162,7 @@
         margin-top: auto;
         display: flex;
         justify-content: space-between;
-        font-size: 9px;
+        font-size: 12px;  /* 增大页码字体 */
         border-top: 1px dashed black;
         padding-top: 1mm;
       }

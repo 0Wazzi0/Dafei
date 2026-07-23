@@ -1,13 +1,13 @@
-export interface MatrixHeader {
+﻿export interface MatrixHeader {
   id: string;
   name: string;
 }
 
 export interface CuttingForm {
   id: string;
-  styleNumber: string; // 款号
-  customer: string; // 客户
-  bedNumber: string; // 床号
+  styleNumber: string; // 娆惧彿
+  customer: string; // 瀹㈡埛
+  bedNumber: string; // 搴婂彿
   createdAt: number;
   updatedAt: number;
   
@@ -17,7 +17,11 @@ export interface CuttingForm {
   // Data stored as key: `${rowId}_${colId}` -> quantity
   data: Record<string, number>;
   amountPerPiece?: number; // 单价金额
+  additionalFee?: number; // 附加费用
+  remark?: string; // 订单备注
   totalAmount?: number; // 直接输入的总金额
 }
 
 export type ViewMode = 'list' | 'edit' | 'create';
+
+

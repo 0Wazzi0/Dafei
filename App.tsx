@@ -1,4 +1,4 @@
-import { defineComponent } from 'vue';
+﻿import { defineComponent } from 'vue';
 import FormList from './components/FormList.tsx';
 import FormEditor from './components/FormEditor.tsx';
 import CuttingReport from './components/CuttingReport.tsx';
@@ -129,7 +129,7 @@ export default defineComponent({
   },
   template: `
     <div class="antialiased text-gray-900">
-      <div class="bg-white shadow-sm border-b">
+      <div class="no-print bg-white shadow-sm border-b">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <h1 class="text-xl font-bold text-gray-800">Dafei 裁床单大师</h1>
           <button @click="openDataManagement" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 text-sm font-medium">
@@ -171,3 +171,4 @@ export default defineComponent({
     </div>
   `
 });
+
