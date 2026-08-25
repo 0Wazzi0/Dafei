@@ -1,4 +1,4 @@
-﻿
+
 import { defineComponent } from 'vue';
 import { getFormsFromDB, deleteFormFromDB } from '../services/db.ts';
 import { IconPlus, IconEdit, IconFileText, IconLoader2, IconTrash2, IconSearch, IconDownload, IconClipboard } from './Icons.ts';
@@ -18,6 +18,10 @@ export default defineComponent({
       searchQuery: '',
       startDate: '',
       endDate: '',
+      deleteConfirmId: '',
+      deleteConfirmLabel: '',
+      deleteError: '',
+      deleting: false,
       // 鍒嗛〉鐩稿叧
       currentPage: 1,
       pageSize: 10
@@ -90,15 +94,38 @@ export default defineComponent({
       this.goToPage(this.currentPage + 1);
     },
     
-    async handleDelete(id: string, e: MouseEvent) {
+    handleDelete(id: string, e: MouseEvent) {
       if (e && e.stopPropagation) e.stopPropagation();
+      const form = this.forms.find(f => f.id === id);
+      this.deleteConfirmId = id;
+      this.deleteConfirmLabel = form ? [form.styleNumber, form.customer].filter(Boolean).join(' / ') : '';
+      this.deleteError = '';
+    },
+
+    cancelDelete() {
+      if (this.deleting) return;
+      this.deleteConfirmId = '';
+      this.deleteConfirmLabel = '';
+      this.deleteError = '';
+    },
+
+    async confirmDelete() {
+      if (!this.deleteConfirmId || this.deleting) return;
+      this.deleting = true;
+      this.deleteError = '';
       try {
-        if (!confirm('确定要删除这个订单吗？')) return;
+        const id = this.deleteConfirmId;
         await deleteFormFromDB(id);
         this.forms = this.forms.filter(f => f.id !== id);
+        const totalPages = Math.max(1, Math.ceil(this.filteredForms.length / this.pageSize));
+        if (this.currentPage > totalPages) this.currentPage = totalPages;
+        this.deleteConfirmId = '';
+        this.deleteConfirmLabel = '';
       } catch (err) {
         console.error('Failed to delete form:', err);
-        alert('删除订单失败，请重试。');
+        this.deleteError = '删除订单失败，请重试。';
+      } finally {
+        this.deleting = false;
       }
     },
     
@@ -121,7 +148,7 @@ export default defineComponent({
     
     formatDate(timestamp: number) {
       const d = new Date(timestamp);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
     },
 
     buildExcelFileName() {
@@ -320,7 +347,10 @@ export default defineComponent({
                     <icon-trash2 :size="16" />
                   </button>
                 </div>
-                <div v-if="form.remark" class="col-span-12 -mt-2 text-sm text-gray-500 truncate" :title="form.remark">备注：{{ form.remark }}</div>
+                <div class="col-span-12 -mt-2 flex items-center justify-between gap-4 text-sm text-gray-500">
+                  <span v-if="form.remark" class="truncate" :title="form.remark">备注：{{ form.remark }}</span>
+                  <span class="shrink-0">创建时间：{{ formatDate(form.createdAt) }}</span>
+                </div>
               </div>
 
             </div>
@@ -368,6 +398,20 @@ export default defineComponent({
               >
                 下一页              </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="deleteConfirmId" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+        <div class="w-full max-w-sm bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
+          <div class="px-6 py-5 border-b border-gray-200">
+            <h3 class="text-lg font-bold text-gray-900">确认删除订单</h3>
+            <p class="text-sm text-gray-500 mt-2">{{ deleteConfirmLabel || '这个订单' }}</p>
+            <p v-if="deleteError" class="text-sm text-red-600 mt-3">{{ deleteError }}</p>
+          </div>
+          <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+            <button @click="cancelDelete" :disabled="deleting" class="h-10 px-4 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-60">取消</button>
+            <button @click="confirmDelete" :disabled="deleting" class="h-10 px-4 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60">{{ deleting ? '删除中...' : '确认删除' }}</button>
           </div>
         </div>
       </div>

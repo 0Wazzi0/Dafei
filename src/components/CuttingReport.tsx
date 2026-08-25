@@ -168,8 +168,7 @@ export default defineComponent({
           <div><span class="font-bold">总数 ：</span>{{ totalPieces }}</div>
           <div><span class="font-bold">床号 ：</span>{{ form.bedNumber || '-' }}</div>
           <div class="col-span-2"><span class="font-bold">下单日期 ：</span>{{ new Date(form.createdAt).toLocaleString() }}</div>
-          <div class="col-span-2"><span class="font-bold">金额信息 ：</span>单价 ¥{{ form.amountPerPiece || '0.00' }} / 总金额 ¥{{ totalAmount.toFixed(2) }} / 其他费用 ¥{{ form.additionalFee || '0.00' }}</div>
-          <div class="col-span-4"><span class="font-bold">备注 ：</span>{{ form.remark || '' }}</div>
+          <div class="col-span-2"><span class="font-bold">备注 ：</span>{{ form.remark || '' }}</div>
         </div>
 
         <!-- 琛ㄦ牸涓€锛氭墡鍙峰強数量鍒嗗竷鐭╅樀 -->

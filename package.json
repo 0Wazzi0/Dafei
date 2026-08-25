@@ -6,37 +6,33 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
     "compile:electron": "tsc -p tsconfig.electron.json && node build-electron-main.cjs",
     "electron:dev": "npm run compile:electron && concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "npm run build && npm run compile:electron && npx electron-builder --win --ia32",
-    "pack": "npm run build && npm run compile:electron && npx electron-builder --win portable --ia32",
-    "electron-dev": "concurrently \"vite\" \"wait-on tcp:3000 && electron .\""
+    "pack": "npm run build && npm run compile:electron && npx electron-builder --win portable --ia32"
   },
   "dependencies": {
     "vue": "3"
   },
   "devDependencies": {
-    "@electron/packager": "^19.0.5",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-vue": "^5.2.4",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^14.2.9",
     "electron-builder": "^26.7.0",
-    "pkg": "^5.8.1",
-    "sharp": "^0.34.5",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
-    "vite-plugin-electron": "^0.29.0",
-    "vite-plugin-electron-renderer": "^0.14.5",
     "wait-on": "^7.2.0"
   },
   "build": {
     "appId": "com.daifei.dafei-win7-0317",
-    "productName": "dafei-win7-0317",
+
+    "productName": "dafei-0818",
+
     "directories": {
-      "output": "release/dafei-win7-0317-final3"
+
+      "output": "release/dafei-0818"
+
     },
     "files": [
       "dist/**/*",
@@ -52,10 +48,14 @@
           ]
         }
       ],
-      "artifactName": "${productName}-Win7-Portable.exe"
+
+      "artifactName": "dafei-0818.exe"
+
     },
     "portable": {
-      "artifactName": "${productName}-Win7-Portable.exe"
+
+      "artifactName": "dafei-0818.exe"
+
     }
   }
 }

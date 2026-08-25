@@ -75,10 +75,10 @@ npm run electron:dev
 npm run build
 
 # 打包Electron应用
-npm run electron:build
+npm run pack
 
 # 打包为独立可执行文件
-node build-dafei0228.js
+npm run pack
 ```
 
 ## 目录结构
@@ -108,7 +108,7 @@ dafei/
 订单数据存储在 **IndexedDB** 中（浏览器本地数据库）：
 - **数据库名称**: `FabricCutDB`
 - **存储对象**: `forms`
-- **物理位置**: `%APPDATA%\dafei0302\Partitions\default\IndexedDB\`
+- **物理位置**: `%APPDATA%\Dafei\IndexedDB\`
 
 ### 🔄 版本升级数据迁移指南
 
@@ -135,7 +135,7 @@ dafei/
 
 1. 找到旧版本的数据库文件位置：
    ```
-   %APPDATA%\dafei0302\Partitions\default\IndexedDB\
+   %APPDATA%\Dafei\IndexedDB\
    ```
 
 2. 复制整个 `IndexedDB` 文件夹
@@ -169,13 +169,7 @@ A: 可以通过任务管理器结束进程，或者在应用窗口中点击关�
 ### Q: 数据会丢失吗？
 A: 不会。数据存储在IndexedDB中，即使应用重启也会保留。
 
-## 测试单实例功能
-
-运行测试脚本验证功能：
-```bash
-test-single-instance.bat
-```
-
+应用已内置单实例保护，无需单独测试脚本。
 ## 许可证
 
 MIT License
@@ -183,3 +177,4 @@ MIT License
 ## 联系方式
 
 如有问题或建议，请提交Issue或Pull Request。
+

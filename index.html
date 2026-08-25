@@ -8,6 +8,31 @@
     <!-- 引入 SheetJS 用于导出 Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
+      .print-label {
+        width: var(--paper-width, 40mm);
+        height: var(--paper-height, 80mm);
+        padding: 0;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        font-family: sans-serif;
+        color: black;
+        overflow: hidden;
+        gap: calc(var(--print-gap, 10px) / 3);
+      }
+
+      .label-content {
+        width: var(--print-area-width, 28mm);
+        height: var(--print-area-height, 60mm);
+        margin: var(--print-area-top, 10mm) auto 0;
+        padding: var(--print-padding, 8px) var(--print-padding, 8px) calc(var(--print-padding, 8px) + 10px);
+        display: flex;
+        flex-direction: column;
+        font-size: var(--print-font-size, 18px);
+        line-height: calc(var(--print-line-spacing, 1.2) * 1em);
+        box-sizing: border-box;
+      }
+
       @media print {
         @page {
           size: 40mm 80mm;
@@ -62,35 +87,16 @@
           display: none !important;
         }
         .print-label {
-          width: var(--paper-width, 40mm);
-          height: var(--paper-height, 80mm);
-          padding: calc(var(--print-padding, 8px) / 3);
-          box-sizing: border-box;
           page-break-after: always;
           break-after: page;
           page-break-inside: avoid;
           break-inside: avoid-page;
-          display: flex;
-          flex-direction: column;
-          font-family: sans-serif;
-          color: black;
-          overflow: hidden;
-          gap: calc(var(--print-gap, 10px) / 3);
         }
         .print-label:last-child {
           page-break-after: auto;
           break-after: auto;
         }
-        .label-content {
-          height: 100%;
-          padding: var(--print-padding, 8px) var(--print-padding, 8px) calc(var(--print-padding, 8px) + 10px);
-          display: flex;
-          flex-direction: column;
-          font-size: var(--print-font-size, 18px);  /* 增大字体 */
-          line-height: calc(var(--print-line-spacing, 1.2) * 1em);
-          box-sizing: border-box;
-        }
-        
+
         /* 移除浏览器默认页眉页脚 */
         @page :first {
           margin: 0 !important;
@@ -107,7 +113,7 @@
         header, footer, nav, aside, .no-print {
           display: none !important;
         }
-        
+
         /* 隐藏标题栏和可能的页眉元素 */
         h1, h2, h3, h4, h5, h6 {
           -webkit-print-color-adjust: exact;
@@ -115,7 +121,6 @@
         }
       }
 
-      /* Preview styling for labels */
       .label-preview-container {
         display: flex;
         flex-wrap: wrap;
@@ -123,25 +128,21 @@
         justify-content: center;
         padding: 40px;
         background: #e2e8f0;
+        --preview-font-scale: 0.7;
       }
-      .label-preview-card {
-        width: var(--paper-width, 40mm);
-        height: var(--paper-height, 80mm);
+      .label-preview-container .print-label {
+        width: 40mm;
+        height: 80mm;
         background: white;
         box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        padding: calc(var(--print-padding, 8px) / 1.5);
-        box-sizing: border-box;
-        font-family: sans-serif;
         transition: all 0.2s ease;
       }
-      .label-inner {
-        height: 100%;
-        padding: var(--print-padding, 8px) var(--print-padding, 8px) calc(var(--print-padding, 8px) + 10px);
-        display: flex;
-        flex-direction: column;
-        font-size: var(--print-font-size, 18px);  /* 增大预览字体 */
-        line-height: calc(var(--print-line-spacing, 1.3) * 1em);
-        box-sizing: border-box;
+      .label-preview-container .label-content {
+        width: 28mm;
+        height: 60mm;
+        margin: 10mm 6mm 0;
+        overflow: hidden;
+        font-size: calc(var(--print-font-size, 18px) * var(--preview-font-scale));
       }
       .label-header {
         text-align: center;
@@ -151,20 +152,38 @@
         padding-bottom: 0.5mm;
         font-size: 14px;
       }
+      .label-preview-container .label-header {
+        white-space: nowrap;
+        font-size: calc(14px * var(--preview-font-scale));
+      }
       .label-row {
         display: flex;
         margin-bottom: 0.5mm;
+        min-width: 0;
       }
       .label-row b {
-        min-width: 12mm;
+        flex: 0 0 12mm;
+      }
+      .label-preview-container .label-row b {
+        flex-basis: 9mm;
+      }
+      .label-row span {
+        flex: 1 1 auto;
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-all;
       }
       .label-footer {
         margin-top: auto;
         display: flex;
         justify-content: space-between;
-        font-size: 12px;  /* 增大页码字体 */
+        font-size: 12px;
         border-top: 1px dashed black;
         padding-top: 1mm;
+      }
+      .label-preview-container .label-footer {
+        font-size: calc(12px * var(--preview-font-scale));
       }
 
       .fade-enter-active, .fade-leave-active {
@@ -177,6 +196,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>

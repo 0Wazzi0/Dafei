@@ -1,4 +1,3 @@
-﻿
 import { defineComponent } from 'vue';
 import { saveFormToDB, getLastBedNumber, getUniqueCustomers, getUniqueStyleNumbers, removeFromHistory, getHiddenHistory } from '../services/db.ts';
 import { CuttingForm, MatrixHeader } from '../types.ts';
@@ -99,7 +98,7 @@ export default defineComponent({
       // 标记是否为新建订单（从未保存过）
       isNewOrder: !this.initialData,
       // 打印样式配置（实际打印输出）
-      printFontSize: 14,        // 字号大小 (px)
+      printFontSize: 22,        // 字号大小 (px)
       printLineSpacing: 1.2,    // 行间距倍数
       printPadding: 8,          // 内边距 (px)
       printGap: 10,             // 标签间距 (px)
@@ -286,11 +285,19 @@ export default defineComponent({
         '--print-padding': `${this.printPadding}px`,
         '--print-gap': `${this.printGap}px`,
         '--paper-width': `${this.paperWidth}mm`,
-        '--paper-height': `${this.paperHeight}mm`
+        '--paper-height': `${this.paperHeight}mm`,
+        '--print-area-width': '28mm',
+        '--print-area-height': '60mm',
+        '--print-area-top': '10mm'
       };
     }
   },
   methods: {
+    formatCreatedDate(timestamp: number) {
+      const date = new Date(timestamp);
+      return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+    },
+
     // 处理键盘事件
     handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && this.isPreviewing) {
@@ -491,16 +498,27 @@ export default defineComponent({
       
       const newRows = [...this.formData.rows];
       const draggedItem = newRows.splice(this.dragItem, 1)[0];
-      newRows.splice(dropIndex, 0, draggedItem);
+      const targetIndex = this.dragItem < dropIndex ? dropIndex - 1 : dropIndex;
+      newRows.splice(targetIndex, 0, draggedItem);
       this.formData.rows = newRows;
       
       this.dragItem = null;
       this.dragOverItem = null;
     },
-    handleDropCol(e: DragEvent) {
+    handleDropCol(e: DragEvent, dropIndex: number) {
       e.preventDefault();
-      // Col drop logic handled in header if needed, or kept as is if not using draggable cols in UI
-      // Currently only rows are draggable in the requested template change context usually
+      const type = e.dataTransfer ? e.dataTransfer.getData("text/plain") : '';
+
+      if (type !== 'col' || this.dragItem === null || this.dragItem === dropIndex) return;
+
+      const newCols = [...this.formData.cols];
+      const draggedItem = newCols.splice(this.dragItem, 1)[0];
+      const targetIndex = this.dragItem < dropIndex ? dropIndex - 1 : dropIndex;
+      newCols.splice(targetIndex, 0, draggedItem);
+      this.formData.cols = newCols;
+
+      this.dragItem = null;
+      this.dragOverItem = null;
     },
     async handleSave() {
       this.saving = true;
@@ -768,6 +786,9 @@ export default defineComponent({
         '--print-line-spacing': this.printLineSpacing,
         '--print-padding': this.printPadding + 'px',
         '--print-gap': this.printGap + 'px',
+        '--print-area-width': '28mm',
+        '--print-area-height': '60mm',
+        '--print-area-top': '10mm',
       };
     },
     
@@ -786,12 +807,12 @@ export default defineComponent({
         <div v-for="label in filteredLabels" :key="'print-'+label.id" class="print-label">
            <div class="label-content">
               <div class="label-header">青蓝服装裁剪工作室</div>
-              <div class="label-row"><b>款号：</b>{{ label.styleNumber }}</div>
-              <div class="label-row"><b>床号：</b>{{ label.bedNumber }}</div>
-              <div class="label-row"><b>颜色：</b>{{ label.color }}</div>
-              <div class="label-row"><b>尺码：</b>{{ label.size }}</div>
-              <div class="label-row"><b>扎号：</b>{{ label.bundleNo }}</div>
-              <div class="label-row"><b>件数：</b>{{ label.qty }}</div>
+              <div class="label-row"><b>款号</b><span>{{ label.styleNumber }}</span></div>
+              <div class="label-row"><b>床号</b><span>{{ label.bedNumber }}</span></div>
+              <div class="label-row"><b>颜色</b><span>{{ label.color }}</span></div>
+              <div class="label-row"><b>尺码</b><span>{{ label.size }}</span></div>
+              <div class="label-row"><b>扎号</b><span>{{ label.bundleNo }}</span></div>
+              <div class="label-row"><b>件数</b><span>{{ label.qty }}</span></div>
               <div v-if="label.section" class="flex mt-auto text-[12px] font-black py-0.5 justify-start">
                  {{ label.section }}
               </div>
@@ -847,16 +868,18 @@ export default defineComponent({
           没有可打印的标签，请选择扎号或返回编辑检查数量。
         </div>
         <div v-else class="label-preview-container" :style="printStyleVars">
-          <div v-for="label in filteredLabels" :key="'preview-'+label.id" class="label-preview-card">
-            <div class="label-inner">
+          <div v-for="label in filteredLabels" :key="'preview-'+label.id" class="print-label">
+            <div class="label-content">
               <div class="label-header">青蓝服装裁剪工作室</div>
-              <div class="label-row"><b>款号：</b>{{ label.styleNumber }}</div>
-              <div class="label-row"><b>床号：</b>{{ label.bedNumber }}</div>
-              <div class="label-row"><b>颜色：</b>{{ label.color }}</div>
-              <div class="label-row"><b>尺码：</b>{{ label.size }}</div>
-              <div class="label-row"><b>扎号：</b>{{ label.bundleNo }}</div>
-              <div class="label-row"><b>件数：</b>{{ label.qty }}</div>
-              <div v-if="label.section" class="mt-auto text-[12px] font-black py-0.5">{{ label.section }}</div>
+              <div class="label-row"><b>款号</b><span>{{ label.styleNumber }}</span></div>
+              <div class="label-row"><b>床号</b><span>{{ label.bedNumber }}</span></div>
+              <div class="label-row"><b>颜色</b><span>{{ label.color }}</span></div>
+              <div class="label-row"><b>尺码</b><span>{{ label.size }}</span></div>
+              <div class="label-row"><b>扎号</b><span>{{ label.bundleNo }}</span></div>
+              <div class="label-row"><b>件数</b><span>{{ label.qty }}</span></div>
+              <div v-if="label.section" class="flex mt-auto text-[12px] font-black py-0.5 justify-start">
+                {{ label.section }}
+              </div>
               <div class="label-footer">
                 <span>第 {{ label.currentPage }} 张</span>
                 <span>共 {{ label.totalPage }} 张</span>
@@ -948,6 +971,7 @@ export default defineComponent({
             </button>
             <h2 class="text-2xl font-bold text-gray-900 truncate">{{ isNewOrder ? '新建裁床单' : '编辑裁床单' }}</h2>
             <span class="px-3 py-2 rounded bg-gray-100 text-gray-400 text-sm">{{ isNewOrder ? '草稿实时保存中' : '修改后请保存' }}</span>
+            <span v-if="!isNewOrder" class="text-sm text-gray-500 whitespace-nowrap">创建时间：{{ formatCreatedDate(formData.createdAt) }}</span>
           </div>
           <div class="flex items-center gap-3">
             <button @click="$emit('report', formData)" class="h-12 px-6 flex items-center gap-2 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-lg font-medium transition">
@@ -981,7 +1005,7 @@ export default defineComponent({
           <div class="grid grid-cols-3 gap-12 mb-10">
             <div class="relative">
               <label class="block text-lg text-gray-600 mb-4">款号 (STYLE NO.)</label>
-              <input v-model="formData.styleNumber" type="text" :disabled="!isNewOrder" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none disabled:text-gray-500" placeholder="款号" @focus="loadHistory('styleNumber')" @blur="hideHistory('styleNumber')" />
+              <input v-model="formData.styleNumber" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none disabled:text-gray-500" placeholder="款号" @focus="loadHistory('styleNumber')" @blur="hideHistory('styleNumber')" />
               <button type="button" @mousedown.prevent="toggleStyleNumberHistory" class="absolute right-0 bottom-4 text-gray-400 hover:text-gray-700" title="选择历史款号">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
               </button>
@@ -1082,12 +1106,24 @@ export default defineComponent({
             <table class="min-w-full border-collapse text-gray-900">
               <thead>
                 <tr class="bg-gray-50">
-                  <th class="w-40 h-24 border border-gray-300 relative align-top p-0">
+                  <th class="sticky left-0 z-20 w-[200px] min-w-[200px] max-w-[200px] h-24 border border-gray-300 bg-gray-50 relative align-top p-0">
                     <div class="absolute left-0 top-0 w-full h-full" style="background: linear-gradient(to top right, transparent 49.4%, #d1d5db 50%, transparent 50.6%);"></div>
                     <span class="absolute left-4 bottom-4 text-base font-bold">颜色</span>
                     <span class="absolute right-4 top-3 text-base font-bold">尺码</span>
                   </th>
                   <th v-for="(col, colIdx) in formData.cols" :key="'header-' + col.id" class="w-[112px] min-w-[112px] max-w-[112px] h-24 border border-gray-300 bg-gray-50 px-3 group relative">
+                    <button
+                      type="button"
+                      draggable="true"
+                      @dragstart="handleDragStart($event, colIdx, 'col')"
+                      @dragover.prevent="handleDragOver($event, colIdx)"
+                      @drop="handleDropCol($event, colIdx)"
+                      @dragend="handleDragEnd"
+                      title="拖动调整尺码顺序"
+                      class="absolute left-2 top-2 z-10 flex h-7 w-7 cursor-grab items-center justify-center rounded text-gray-400 hover:bg-blue-100 hover:text-blue-600 active:cursor-grabbing"
+                    >
+                      <IconGripHorizontal :size="16" />
+                    </button>
                     <input :value="col.name" @input="updateColName(colIdx, $event)" class="w-full bg-transparent text-center text-2xl font-bold outline-none focus:text-blue-600" />
                     <button @click="deleteCol(colIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
                     <label class="absolute right-4 bottom-3 flex flex-col items-center gap-1 text-sm text-gray-600 font-medium">
@@ -1100,7 +1136,19 @@ export default defineComponent({
               </thead>
               <tbody>
                 <tr v-for="(row, rowIdx) in formData.rows" :key="'row-' + row.id" class="group">
-                  <th class="w-40 h-20 border border-gray-300 bg-gray-50 px-4 relative">
+                  <th class="sticky left-0 z-10 w-[200px] min-w-[200px] max-w-[200px] h-20 border border-gray-300 bg-gray-50 px-4 relative">
+                    <button
+                      type="button"
+                      draggable="true"
+                      @dragstart="handleDragStart($event, rowIdx, 'row')"
+                      @dragover.prevent="handleDragOver($event, rowIdx)"
+                      @drop="handleDropRow($event, rowIdx)"
+                      @dragend="handleDragEnd"
+                      title="拖动调整颜色顺序"
+                      class="absolute left-2 top-2 z-10 flex h-7 w-7 cursor-grab items-center justify-center rounded text-gray-400 hover:bg-blue-100 hover:text-blue-600 active:cursor-grabbing"
+                    >
+                      <IconGripVertical :size="16" />
+                    </button>
                     <input :value="row.name" @input="updateRowName(rowIdx, $event)" class="w-full bg-transparent text-center text-2xl font-bold outline-none focus:text-blue-600" />
                     <button @click="deleteRow(rowIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
                     <span v-if="rowSmartFill[row.id]" class="absolute left-2 top-2 w-6 h-6 rounded-full bg-blue-600 text-white text-sm flex items-center justify-center">{{ rowIdx + 1 }}</span>
@@ -1111,7 +1159,7 @@ export default defineComponent({
                   <td class="min-w-[120px] h-20 border border-gray-300 bg-gray-50 text-center text-xl font-bold">{{ colorTotals[row.id] || 0 }}</td>
                 </tr>
                 <tr>
-                  <th class="w-40 h-16 border border-gray-300 bg-gray-50 text-base font-bold">
+                  <th class="sticky left-0 z-10 w-[200px] min-w-[200px] max-w-[200px] h-16 border border-gray-300 bg-gray-50 text-base font-bold">
                     <label class="inline-flex flex-col items-center gap-1 text-gray-600">
                       <span>行复制<input type="checkbox" :checked="isAllRowFillEnabled" @change="toggleAllRowFill" class="w-5 h-5" /></span>
                     </label>
