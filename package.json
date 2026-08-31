@@ -27,11 +27,11 @@
   "build": {
     "appId": "com.daifei.dafei-win7-0317",
 
-    "productName": "dafei-0818",
+    "productName": "dafei-0831",
 
     "directories": {
 
-      "output": "release/dafei-0818"
+      "output": "release/dafei-0831"
 
     },
     "files": [
@@ -49,12 +49,12 @@
         }
       ],
 
-      "artifactName": "dafei-0818.exe"
+      "artifactName": "dafei-0831.exe"
 
     },
     "portable": {
 
-      "artifactName": "dafei-0818.exe"
+      "artifactName": "dafei-0831.exe"
 
     }
   }

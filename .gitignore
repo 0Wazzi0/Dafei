@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+images/
 codexScript/
 personal/
 node_modules/
@@ -26,3 +27,4 @@ release/
 *.njsproj
 *.sln
 *.sw?
+log.md

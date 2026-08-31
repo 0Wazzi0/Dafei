@@ -87,6 +87,15 @@
           display: none !important;
         }
         .print-label {
+          width: var(--paper-width, 40mm);
+          height: var(--paper-height, 80mm);
+          padding: calc(var(--print-padding, 8px) / 3);
+          display: flex;
+          flex-direction: column;
+          font-family: sans-serif;
+          color: black;
+          overflow: hidden;
+          gap: calc(var(--print-gap, 10px) / 3);
           page-break-after: always;
           break-after: page;
           page-break-inside: avoid;
@@ -95,6 +104,28 @@
         .print-label:last-child {
           page-break-after: auto;
           break-after: auto;
+        }
+        .label-content {
+          width: auto;
+          height: 100%;
+          margin: 0;
+          padding: var(--print-padding, 8px) var(--print-padding, 8px) calc(var(--print-padding, 8px) + 10px);
+          display: flex;
+          flex-direction: column;
+          font-size: var(--print-font-size, 18px);
+          line-height: calc(var(--print-line-spacing, 1.2) * 1em);
+          box-sizing: border-box;
+        }
+        .label-row b {
+          flex: initial;
+          min-width: 12mm;
+        }
+        .label-row span {
+          flex: initial;
+          min-width: auto;
+          white-space: normal;
+          overflow-wrap: normal;
+          word-break: normal;
         }
 
         /* 移除浏览器默认页眉页脚 */
