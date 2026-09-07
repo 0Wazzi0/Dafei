@@ -5,9 +5,9 @@
 
 export interface CuttingForm {
   id: string;
-  styleNumber: string; // 娆惧彿
-  customer: string; // 瀹㈡埛
-  bedNumber: string; // 搴婂彿
+  styleNumber: string; // 订单号
+  customer: string; // 客户
+  bedNumber: string; // 床号
   createdAt: number;
   updatedAt: number;
   

@@ -349,10 +349,9 @@ export default defineComponent({
                 </div>
                 <div class="col-span-12 -mt-2 flex items-center justify-between gap-4 text-sm text-gray-500">
                   <span v-if="form.remark" class="truncate" :title="form.remark">备注：{{ form.remark }}</span>
-                  <span class="shrink-0">创建时间：{{ formatDate(form.createdAt) }}</span>
+                  <span class="shrink-0 ml-auto">创建时间：{{ formatDate(form.createdAt) }}</span>
                 </div>
               </div>
-
             </div>
           </div>
           
