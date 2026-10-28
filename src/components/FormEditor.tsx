@@ -1,5 +1,6 @@
 import { defineComponent } from 'vue';
-import { saveFormToDB, getLastBedNumber, getUniqueCustomers, getUniqueStyleNumbers, removeFromHistory, getHiddenHistory } from '../services/db.ts';
+import { saveFormToDB, getLastBedNumber, getUniqueCustomers, getUniqueStyleNumbers, getLatestAmountPerPieceByStyleNumber, removeFromHistory, getHiddenHistory } from '../services/db.ts';
+import { matchPoolItem, POOL_MATCH_HINT } from '../services/poolMatch.ts';
 import { CuttingForm, MatrixHeader } from '../types.ts';
 import { 
   IconPlus, IconSave, IconPrinter, IconArrowLeft, 
@@ -43,7 +44,7 @@ export default defineComponent({
     IconDownload, IconUpload, IconDatabase,
     IconLoader2 // 添加缺失的图标组件
   },
-  emits: ['back', 'save', 'report'], // 添加emits声明
+  emits: ['back', 'save', 'save-as-new', 'report'], // 添加emits声明
   props: {
     initialData: {
       type: Object,
@@ -83,6 +84,11 @@ export default defineComponent({
       newColorInput: '',
       newSizeInput: '',
       newSectionInput: '',
+      // 池子折叠状态：默认只展示前 poolCollapsedLimit 个，其余折叠
+      poolColorsExpanded: false,
+      poolSizesExpanded: false,
+      poolCollapsedLimit: 12,
+      poolMatchHint: POOL_MATCH_HINT,
       rowSmartFill: {} as Record<string, boolean>,
       colSmartFill: {} as Record<string, boolean>,
       amountInputMode: (this.initialData && this.initialData.totalAmount !== undefined && this.initialData.totalAmount !== '')
@@ -95,6 +101,8 @@ export default defineComponent({
       hiddenStyleNumbers: [] as string[],
       showCustomerHistory: false,
       showStyleNumberHistory: false,
+      amountAutoFilled: false,
+      styleNumberLookupSeq: 0,
       // 标记是否为新建订单（从未保存过）
       isNewOrder: !this.initialData,
       // 打印样式配置（实际打印输出）
@@ -277,6 +285,16 @@ export default defineComponent({
       }
       return this.labels.filter(label => this.selectedBundles.includes(label.bundleNo));
     },
+    filteredCustomerHistory() {
+      const query = this.formData.customer.trim().toLowerCase();
+      if (!query) return this.customerHistory;
+      return this.customerHistory.filter(item => item.value.toLowerCase().includes(query));
+    },
+    filteredStyleNumberHistory() {
+      const query = this.formData.styleNumber.trim().toLowerCase();
+      if (!query) return this.styleNumberHistory;
+      return this.styleNumberHistory.filter(item => item.value.toLowerCase().includes(query));
+    },
     // 打印样式计算属性
     printStyleVars() {
       return {
@@ -290,6 +308,35 @@ export default defineComponent({
         '--print-area-height': '60mm',
         '--print-area-top': '10mm'
       };
+    },
+    // 颜色池匹配结果
+    poolColorMatches(): string[] {
+      const query = this.newColorInput;
+      if (!query.trim()) return this.commonColors;
+      return this.commonColors.filter((name: string) => matchPoolItem(name, query));
+    },
+    // 颜色池实际展示项：未展开且未搜索时只展示前 N 个
+    poolColorVisible(): string[] {
+      const list = this.poolColorMatches;
+      if (this.poolColorsExpanded || this.newColorInput.trim()) return list;
+      return list.slice(0, this.poolCollapsedLimit);
+    },
+    poolColorHiddenCount(): number {
+      return Math.max(0, this.poolColorMatches.length - this.poolColorVisible.length);
+    },
+    // 尺码池匹配结果
+    poolSizeMatches(): string[] {
+      const query = this.newSizeInput;
+      if (!query.trim()) return this.commonSizes;
+      return this.commonSizes.filter((name: string) => matchPoolItem(name, query));
+    },
+    poolSizeVisible(): string[] {
+      const list = this.poolSizeMatches;
+      if (this.poolSizesExpanded || this.newSizeInput.trim()) return list;
+      return list.slice(0, this.poolCollapsedLimit);
+    },
+    poolSizeHiddenCount(): number {
+      return Math.max(0, this.poolSizeMatches.length - this.poolSizeVisible.length);
     }
   },
   methods: {
@@ -619,6 +666,64 @@ export default defineComponent({
       this.showStyleNumberHistory = !this.showStyleNumberHistory;
       this.showCustomerHistory = false;
     },
+    handleCustomerFocus() {
+      this.showCustomerHistory = true;
+      this.showStyleNumberHistory = false;
+      this.loadHistory('customer');
+    },
+    handleCustomerInput() {
+      this.showCustomerHistory = true;
+      this.showStyleNumberHistory = false;
+    },
+    handleStyleNumberFocus() {
+      this.showStyleNumberHistory = true;
+      this.showCustomerHistory = false;
+      this.loadHistory('styleNumber');
+    },
+    async handleStyleNumberInput() {
+      this.showStyleNumberHistory = true;
+      this.showCustomerHistory = false;
+      await this.applyHistoricalAmountPerPiece();
+    },
+    async applyHistoricalAmountPerPiece() {
+      const styleNumber = this.formData.styleNumber.trim();
+      const lookupSeq = ++this.styleNumberLookupSeq;
+      if (!styleNumber) return;
+
+      const amountPerPiece = await getLatestAmountPerPieceByStyleNumber(styleNumber);
+      if (lookupSeq !== this.styleNumberLookupSeq || this.formData.styleNumber.trim() !== styleNumber) {
+        return;
+      }
+
+      if (amountPerPiece !== undefined) {
+        if (this.formData.amountPerPiece === undefined || this.amountAutoFilled) {
+          this.formData.amountPerPiece = amountPerPiece;
+          this.amountAutoFilled = true;
+        }
+      } else if (this.amountAutoFilled) {
+        this.formData.amountPerPiece = undefined;
+        this.amountAutoFilled = false;
+      }
+    },
+    hideHistory(type: 'customer' | 'styleNumber') {
+      setTimeout(() => {
+        if (type === 'customer') {
+          this.showCustomerHistory = false;
+        } else {
+          this.showStyleNumberHistory = false;
+        }
+      }, 150);
+    },
+    async selectHistoryItem(type: 'customer' | 'styleNumber', value: string) {
+      if (type === 'customer') {
+        this.formData.customer = value;
+        this.showCustomerHistory = false;
+      } else {
+        this.formData.styleNumber = value;
+        this.showStyleNumberHistory = false;
+        await this.applyHistoricalAmountPerPiece();
+      }
+    },
     // 打印控制方法
     resetPrintSettings() {
       this.printScale = 100;
@@ -684,6 +789,9 @@ export default defineComponent({
       const target = event.target as HTMLInputElement;
       const value = target.value === '' ? undefined : Number(target.value);
       this.formData[field] = value !== undefined && Number.isFinite(value) ? value : undefined;
+      if (field === 'amountPerPiece') {
+        this.amountAutoFilled = false;
+      }
     },
 
     goBackToList() {
@@ -718,6 +826,37 @@ export default defineComponent({
       } catch (error) {
         console.error('Failed to save form:', error);
         alert('保存失败: ' + (error instanceof Error ? error.message : String(error)));
+      } finally {
+        this.saving = false;
+      }
+    },
+
+    async saveAsNewForm() {
+      this.saving = true;
+      try {
+        const now = Date.now();
+        const savedForm = JSON.parse(JSON.stringify({
+          ...this.formData,
+          id: generateId(),
+          createdAt: now,
+          updatedAt: now,
+          additionalFee: Number(this.formData.additionalFee) || 0,
+          totalAmount: undefined
+        }));
+
+        await saveFormToDB(savedForm);
+        this.formData = JSON.parse(JSON.stringify(savedForm));
+        this.saveSuccess = true;
+        this.isNewOrder = false;
+
+        setTimeout(() => {
+          this.saveSuccess = false;
+        }, 3000);
+
+        this.$emit('save-as-new', savedForm);
+      } catch (error) {
+        console.error('Failed to save form as new:', error);
+        alert('另存为新订单失败: ' + (error instanceof Error ? error.message : String(error)));
       } finally {
         this.saving = false;
       }
@@ -963,7 +1102,7 @@ export default defineComponent({
 
     <!-- Main Editor UI -->
     <div v-if="!isPreviewing" class="min-h-screen bg-gray-50">
-      <div class="bg-white border-b border-gray-200 shadow-sm">
+      <div class="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
         <div class="max-w-screen-2xl mx-auto px-6 py-5 flex items-center justify-between">
           <div class="flex items-center gap-5 min-w-0">
             <button @click="goBackToList" class="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition" title="返回列表">
@@ -981,6 +1120,10 @@ export default defineComponent({
             <button @click="printOrder" class="h-12 px-6 flex items-center gap-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 text-lg font-medium transition">
               <icon-printer :size="22" />
               打印菲
+            </button>
+            <button @click="saveAsNewForm" :disabled="saving" class="h-12 px-6 flex items-center gap-2 rounded-lg bg-white border border-blue-600 text-blue-600 hover:bg-blue-50 disabled:opacity-60 text-lg font-medium transition">
+              <icon-copy :size="22" />
+              另存为新订单
             </button>
             <button @click="saveForm" :disabled="saving" class="h-12 px-6 flex items-center gap-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 text-lg font-medium transition">
               <icon-save v-if="!saving" :size="22" />
@@ -1005,12 +1148,12 @@ export default defineComponent({
           <div class="grid grid-cols-3 gap-12 mb-10">
             <div class="relative">
               <label class="block text-lg text-gray-600 mb-4">款号 (STYLE NO.)</label>
-              <input v-model="formData.styleNumber" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none disabled:text-gray-500" placeholder="款号" @focus="loadHistory('styleNumber')" @blur="hideHistory('styleNumber')" />
+              <input v-model="formData.styleNumber" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none disabled:text-gray-500" placeholder="款号" @focus="handleStyleNumberFocus" @input="handleStyleNumberInput" @blur="hideHistory('styleNumber')" />
               <button type="button" @mousedown.prevent="toggleStyleNumberHistory" class="absolute right-0 bottom-4 text-gray-400 hover:text-gray-700" title="选择历史款号">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
               </button>
               <div v-if="showStyleNumberHistory" class="absolute left-0 right-0 z-20 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
-                <div v-for="item in styleNumberHistory" :key="item.value" @mousedown.prevent="selectHistoryItem('styleNumber', item.value)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
+                <div v-for="item in filteredStyleNumberHistory" :key="item.value" @mousedown.prevent="selectHistoryItem('styleNumber', item.value)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
                   <div class="font-medium text-gray-900">{{ item.value }}</div>
                   <div class="text-xs text-gray-500">使用 {{ item.count }} 次</div>
                 </div>
@@ -1019,12 +1162,12 @@ export default defineComponent({
 
             <div class="relative">
               <label class="block text-lg text-gray-600 mb-4">客户 (CUSTOMER)</label>
-              <input v-model="formData.customer" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none" placeholder="客户" @focus="loadHistory('customer')" @blur="hideHistory('customer')" />
+              <input v-model="formData.customer" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none" placeholder="客户" @focus="handleCustomerFocus" @input="handleCustomerInput" @blur="hideHistory('customer')" />
               <button type="button" @mousedown.prevent="toggleCustomerHistory" class="absolute right-0 bottom-4 text-gray-400 hover:text-gray-700" title="选择历史客户">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
               </button>
               <div v-if="showCustomerHistory" class="absolute left-0 right-0 z-20 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-auto">
-                <div v-for="item in customerHistory" :key="item.value" @mousedown.prevent="selectHistoryItem('customer', item.value)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
+                <div v-for="item in filteredCustomerHistory" :key="item.value" @mousedown.prevent="selectHistoryItem('customer', item.value)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0">
                   <div class="font-medium text-gray-900">{{ item.value }}</div>
                   <div class="text-xs text-gray-500">使用 {{ item.count }} 次</div>
                 </div>
@@ -1073,31 +1216,51 @@ export default defineComponent({
           <div class="border border-gray-200 rounded-xl bg-gray-50 px-8 py-7 mb-10">
             <div class="grid grid-cols-2 gap-10 divide-x divide-gray-200">
               <div class="pr-10">
-                <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-5">
-                  <h3 class="text-xl font-bold text-gray-900">颜色池</h3>
+                <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
+                  <h3 class="text-xl font-bold text-gray-900">
+                    颜色池
+                    <span class="ml-2 text-sm font-normal text-gray-400">{{ poolColorMatches.length }} 个</span>
+                  </h3>
                   <span class="text-sm text-gray-400">右键移除</span>
                 </div>
-                <div class="flex flex-wrap gap-3 mb-5">
-                  <button v-for="color in commonColors" :key="'color-pool-' + color" @click="addRow(color)" @contextmenu.prevent="removeFromPool('color', color)" class="min-w-[62px] h-12 px-5 bg-white border border-gray-200 rounded-lg text-xl text-gray-900 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition">{{ color }}</button>
+                <div class="flex flex-wrap items-center gap-3 mb-4 min-h-[108px] content-start">
+                  <button v-for="color in poolColorVisible" :key="'color-pool-' + color" @click="addRow(color)" @contextmenu.prevent="removeFromPool('color', color)" class="min-w-[62px] h-12 px-5 bg-white border border-gray-200 rounded-lg text-xl text-gray-900 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition">{{ color }}</button>
+                  <button v-if="poolColorHiddenCount > 0" @click="poolColorsExpanded = true" class="h-12 px-4 rounded-lg border border-dashed border-gray-300 text-base text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">展开 +{{ poolColorHiddenCount }}</button>
+                  <button v-else-if="poolColorsExpanded && poolColorMatches.length > poolCollapsedLimit && !newColorInput.trim()" @click="poolColorsExpanded = false" class="h-12 px-4 rounded-lg border border-dashed border-gray-300 text-base text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">收起</button>
+                  <span v-if="newColorInput.trim() && poolColorMatches.length === 0" class="text-base text-gray-400">没有匹配的颜色，按 Enter 可直接新增</span>
                 </div>
                 <div class="flex gap-3">
-                  <input v-model="newColorInput" @keyup.enter="addRow(newColorInput); addToPoolColor()" type="text" placeholder="添加新颜色..." class="flex-1 h-12 px-4 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
+                  <div class="relative flex-1">
+                    <input v-model="newColorInput" @keyup.enter="addRow(newColorInput); addToPoolColor()" type="text" :title="poolMatchHint" placeholder="搜索或新增颜色（文字 / 全拼 / 首字母）" class="w-full h-12 pl-4 pr-11 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
+                    <button v-if="newColorInput" @click="newColorInput = ''" title="清空" class="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-600">×</button>
+                  </div>
                   <button @click="addRow(newColorInput); addToPoolColor()" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
                 </div>
+                <p class="mt-2 text-sm text-gray-400">拼音可搜：hs、heise 都能找到「黑色」</p>
               </div>
 
               <div class="pl-10">
-                <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-5">
-                  <h3 class="text-xl font-bold text-gray-900">尺码池</h3>
+                <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
+                  <h3 class="text-xl font-bold text-gray-900">
+                    尺码池
+                    <span class="ml-2 text-sm font-normal text-gray-400">{{ poolSizeMatches.length }} 个</span>
+                  </h3>
                   <span class="text-sm text-gray-400">右键移除</span>
                 </div>
-                <div class="flex flex-wrap gap-3 mb-5">
-                  <button v-for="size in commonSizes" :key="'size-pool-' + size" @click="addCol(size)" @contextmenu.prevent="removeFromPool('size', size)" class="min-w-[62px] h-12 px-5 bg-white border border-gray-200 rounded-lg text-xl text-gray-900 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition">{{ size }}</button>
+                <div class="flex flex-wrap items-center gap-3 mb-4 min-h-[108px] content-start">
+                  <button v-for="size in poolSizeVisible" :key="'size-pool-' + size" @click="addCol(size)" @contextmenu.prevent="removeFromPool('size', size)" class="min-w-[62px] h-12 px-5 bg-white border border-gray-200 rounded-lg text-xl text-gray-900 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition">{{ size }}</button>
+                  <button v-if="poolSizeHiddenCount > 0" @click="poolSizesExpanded = true" class="h-12 px-4 rounded-lg border border-dashed border-gray-300 text-base text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">展开 +{{ poolSizeHiddenCount }}</button>
+                  <button v-else-if="poolSizesExpanded && poolSizeMatches.length > poolCollapsedLimit && !newSizeInput.trim()" @click="poolSizesExpanded = false" class="h-12 px-4 rounded-lg border border-dashed border-gray-300 text-base text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">收起</button>
+                  <span v-if="newSizeInput.trim() && poolSizeMatches.length === 0" class="text-base text-gray-400">没有匹配的尺码，按 Enter 可直接新增</span>
                 </div>
                 <div class="flex gap-3">
-                  <input v-model="newSizeInput" @keyup.enter="addCol(newSizeInput); addToPoolSize()" type="text" placeholder="添加新尺码..." class="flex-1 h-12 px-4 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
+                  <div class="relative flex-1">
+                    <input v-model="newSizeInput" @keyup.enter="addCol(newSizeInput); addToPoolSize()" type="text" :title="poolMatchHint" placeholder="搜索或新增尺码（文字 / 全拼 / 首字母）" class="w-full h-12 pl-4 pr-11 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
+                    <button v-if="newSizeInput" @click="newSizeInput = ''" title="清空" class="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-600">×</button>
+                  </div>
                   <button @click="addCol(newSizeInput); addToPoolSize()" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
                 </div>
+                <p class="mt-2 text-sm text-gray-400">字母直接搜（XL、2XL），中文尺码可用拼音</p>
               </div>
             </div>
           </div>

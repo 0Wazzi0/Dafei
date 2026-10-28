@@ -11,6 +11,7 @@
     "pack": "npm run build && npm run compile:electron && npx electron-builder --win portable --ia32"
   },
   "dependencies": {
+    "pinyin-pro": "^3.29.5",
     "vue": "3"
   },
   "devDependencies": {
@@ -26,13 +27,9 @@
   },
   "build": {
     "appId": "com.daifei.dafei-win7-0317",
-
-    "productName": "dafei-0831",
-
+    "productName": "dafei-1029",
     "directories": {
-
-      "output": "release/dafei-0831"
-
+      "output": "release/dafei-1029"
     },
     "files": [
       "dist/**/*",
@@ -40,6 +37,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "images/icon.ico",
       "target": [
         {
           "target": "portable",
@@ -48,14 +46,10 @@
           ]
         }
       ],
-
-      "artifactName": "dafei-0831.exe"
-
+      "artifactName": "dafei-1029.exe"
     },
     "portable": {
-
-      "artifactName": "dafei-0831.exe"
-
+      "artifactName": "dafei-1029.exe"
     }
   }
 }

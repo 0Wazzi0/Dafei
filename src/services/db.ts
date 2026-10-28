@@ -144,6 +144,26 @@ export const getUniqueStyleNumbers = async (): Promise<{value: string, lastUsed:
 };
 
 /**
+ * 获取指定款号最近一次使用的单价
+ */
+export const getLatestAmountPerPieceByStyleNumber = async (styleNumber: string): Promise<number | undefined> => {
+  const target = styleNumber.trim();
+  if (!target) return undefined;
+
+  const forms = await getFormsFromDB();
+  const matched = forms
+    .filter((form) => (
+      form.styleNumber?.trim() === target &&
+      form.amountPerPiece !== undefined &&
+      form.amountPerPiece !== null &&
+      Number.isFinite(Number(form.amountPerPiece))
+    ))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+
+  return matched.length > 0 ? Number(matched[0].amountPerPiece) : undefined;
+};
+
+/**
  * 从历史记录中删除指定的客户或款号（仅标记，实际删除需要过滤表单）
  * 注意：由于数据存储在表单中，我们无法直接删除，只能在显示时过滤
  */

@@ -9,6 +9,8 @@ lerna-debug.log*
 
 images/
 codexScript/
+assistantScript/
+.workbuddy/
 personal/
 node_modules/
 dist/
