@@ -136,14 +136,16 @@ export default defineComponent({
     // 璁＄畻璁㈠崟閲戦
     calculateOrderAmount(form: any) {
       const totalQty = this.calculateTotal(form.data);
+      const additionalFee = Number(form.additionalFee) || 0;
       const amountPerPiece = Number(form.amountPerPiece);
       if (Number.isFinite(amountPerPiece)) {
-        return amountPerPiece * totalQty;
+        return amountPerPiece * totalQty + additionalFee;
       }
       if (form.totalAmount !== undefined) {
         return Number(form.totalAmount) || 0;
       }
-      return 0;
+      // 单价未填但填了其他费用时，总额至少应包含其他费用
+      return additionalFee;
     },
     
     formatDate(timestamp: number) {

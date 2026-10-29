@@ -267,10 +267,11 @@ export default defineComponent({
       
       return totals;
     },
-    // 计算总金额
+    // 计算总金额 = 单价 × 订单数量 + 其他费用
     calculatedTotalAmount(): number {
       const amountPerPiece = Number(this.formData.amountPerPiece) || 0;
-      return amountPerPiece * this.totalPieces;
+      const additionalFee = Number(this.formData.additionalFee) || 0;
+      return amountPerPiece * this.totalPieces + additionalFee;
     },
     isAllRowFillEnabled(): boolean {
       return this.formData.rows.length > 0 && this.formData.rows.every((r: MatrixHeader) => this.rowSmartFill[r.id]);
@@ -1184,7 +1185,7 @@ export default defineComponent({
             <div class="flex flex-wrap items-center justify-between gap-6 mb-6">
               <div>
                 <h3 class="text-xl font-bold text-gray-900">金额输入</h3>
-                <p class="text-sm text-gray-500 mt-1">总金额 = 单价 x 订单数量</p>
+                <p class="text-sm text-gray-500 mt-1">总金额 = 单价 x 订单数量 + 其他费用</p>
               </div>
             </div>
 
@@ -1198,13 +1199,14 @@ export default defineComponent({
                 <input :value="formData.amountPerPiece ?? ''" @input="updateAmountValue('amountPerPiece', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
               </div>
               <div>
-                <label class="block text-sm font-bold text-gray-600 mb-2">总金额</label>
-                <div class="h-12 px-4 rounded-lg border border-blue-200 bg-blue-50 flex items-center text-2xl font-bold text-blue-700">¥{{ calculatedTotalAmount.toFixed(2) }}</div>
-              </div>
-              <div>
                 <label class="block text-sm font-bold text-gray-600 mb-2">其他费用 (元)</label>
                 <input :value="formData.additionalFee ?? 0" @input="updateAmountValue('additionalFee', $event)" type="number" min="0" step="0.01" class="w-full h-12 px-4 rounded-lg border border-gray-200 bg-white text-2xl font-bold text-gray-900 focus:border-blue-500 focus:ring-0 outline-none" placeholder="0.00" />
               </div>
+              <div>
+                <label class="block text-sm font-bold text-gray-600 mb-2">总金额</label>
+                <div class="h-12 px-4 rounded-lg border border-blue-200 bg-blue-50 flex items-center text-2xl font-bold text-blue-700">¥{{ calculatedTotalAmount.toFixed(2) }}</div>
+              </div>
+              
             </div>
           </div>
 
@@ -1236,7 +1238,6 @@ export default defineComponent({
                   </div>
                   <button @click="addRow(newColorInput); addToPoolColor()" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
                 </div>
-                <p class="mt-2 text-sm text-gray-400">拼音可搜：hs、heise 都能找到「黑色」</p>
               </div>
 
               <div class="pl-10">
@@ -1260,7 +1261,6 @@ export default defineComponent({
                   </div>
                   <button @click="addCol(newSizeInput); addToPoolSize()" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
                 </div>
-                <p class="mt-2 text-sm text-gray-400">字母直接搜（XL、2XL），中文尺码可用拼音</p>
               </div>
             </div>
           </div>

@@ -16,15 +16,18 @@ export default defineComponent({
       return (Object.values(this.form.data) as number[]).reduce((a: number, b: number) => a + (Number(b) || 0), 0);
     },
     
+    // 总金额 = 单价 × 订单总数 + 其他费用
     totalAmount(): number {
       const amountPerPiece = Number(this.form.amountPerPiece);
+      const additionalFee = Number(this.form.additionalFee) || 0;
       if (Number.isFinite(amountPerPiece)) {
-        return amountPerPiece * this.totalPieces;
+        return amountPerPiece * this.totalPieces + additionalFee;
       }
       if (this.form.totalAmount !== undefined) {
         return Number(this.form.totalAmount) || 0;
       }
-      return 0;
+      // 单价未填但填了其他费用时，总额至少应包含其他费用
+      return additionalFee;
     },
     
     
