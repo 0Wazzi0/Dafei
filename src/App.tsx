@@ -133,7 +133,7 @@ export default defineComponent({
   },
   template: `
     <div class="antialiased text-gray-900">
-      <div v-if="view === 'list'" class="no-print bg-white border-b border-[#E6EAF0] h-16 flex items-center">
+      <div v-if="view === 'list'" class="no-print sticky top-0 z-30 bg-white border-b border-[#E6EAF0] h-16 flex items-center">
         <div class="w-full px-6 flex items-center justify-between">
           <div class="flex items-center gap-3">
             <div class="w-9 h-9 rounded-[10px] bg-blue-600 flex items-center justify-center">

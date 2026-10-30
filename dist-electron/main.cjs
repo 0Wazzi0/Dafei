@@ -24,10 +24,10 @@ else {
     });
     function createWindow() {
         mainWindow = new electron_1.BrowserWindow({
-            width: 1200,
-            height: 800,
-            minWidth: 800,
-            minHeight: 600,
+            width: 1400,
+            height: 900,
+            minWidth: 1000,
+            minHeight: 640,
             title: 'Dafei',
             webPreferences: {
                 nodeIntegration: false,
@@ -38,7 +38,10 @@ else {
         // 开发模式下加载 Vite 开发服务器
         if (process.env.NODE_ENV === 'development') {
             mainWindow.loadURL('http://localhost:5173');
-            mainWindow.webContents.openDevTools();
+            // 开发时默认不弹 DevTools，需要时用 OPEN_DEVTOOLS=1 启动
+            if (process.env.OPEN_DEVTOOLS === '1') {
+                mainWindow.webContents.openDevTools();
+            }
         }
         else {
             // 生产模式下加载打包后的文件

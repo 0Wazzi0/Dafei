@@ -259,8 +259,8 @@ export default defineComponent({
     }
   },
   template: `
-    <div class="h-[calc(100vh-64px)] flex flex-col bg-[#F4F6F9] overflow-hidden">
-      <div class="flex-1 min-h-0 flex flex-col gap-4 px-6 py-6">
+    <div class="min-h-[calc(100vh-64px)] bg-[#F4F6F9]">
+      <div class="flex flex-col gap-4 px-6 py-6">
 
         <!-- 页头 -->
         <div class="shrink-0 flex items-center justify-between gap-6">
@@ -350,12 +350,12 @@ export default defineComponent({
         </div>
 
         <!-- 加载中 -->
-        <div v-if="loading" class="flex-1 min-h-0 bg-white rounded-xl border border-[#E6EAF0] flex items-center justify-center gap-3 text-[#64748B] text-[17px]">
+        <div v-if="loading" class="min-h-[420px] bg-white rounded-xl border border-[#E6EAF0] flex items-center justify-center gap-3 text-[#64748B] text-[17px]">
           <icon-loader2 class="animate-spin" :size="22" /> 加载中...
         </div>
 
         <!-- 完全没有数据 -->
-        <div v-else-if="forms.length === 0" class="flex-1 min-h-0 bg-white rounded-xl border border-[#E6EAF0] flex flex-col items-center justify-center text-center px-6">
+        <div v-else-if="forms.length === 0" class="min-h-[420px] bg-white rounded-xl border border-[#E6EAF0] flex flex-col items-center justify-center text-center px-6">
           <div class="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 mb-6">
             <icon-file-text :size="40" />
           </div>
@@ -364,7 +364,7 @@ export default defineComponent({
         </div>
 
         <!-- 筛选后无结果 -->
-        <div v-else-if="filteredForms.length === 0" class="flex-1 min-h-0 bg-white rounded-xl border border-[#E6EAF0] flex flex-col items-center justify-center text-center px-6">
+        <div v-else-if="filteredForms.length === 0" class="min-h-[420px] bg-white rounded-xl border border-[#E6EAF0] flex flex-col items-center justify-center text-center px-6">
           <div class="w-16 h-16 bg-[#F1F5F9] rounded-full flex items-center justify-center text-[#94A3B8] mb-5">
             <icon-search :size="32" />
           </div>
@@ -373,13 +373,13 @@ export default defineComponent({
         </div>
 
         <!-- 表格 -->
-        <div v-else class="flex-1 min-h-0 bg-white rounded-xl border border-[#E6EAF0] overflow-hidden flex flex-col">
-          <div class="flex-1 min-h-0 overflow-auto">
-            <div class="min-w-[1000px] flex flex-col min-h-full">
+        <div v-else class="bg-white rounded-xl border border-[#E6EAF0]">
+          <div>
+            <div class="min-w-[1000px]">
 
-              <!-- 表头（跟随滚动吸顶） -->
+              <!-- 表头（跟随页面滚动吸顶，贴在顶栏下方） -->
               <div
-                class="sticky top-0 z-10 shrink-0 grid gap-4 items-center h-[52px] px-7 bg-[#F8FAFC] border-b border-[#EEF2F6]"
+                class="sticky top-16 z-20 grid gap-4 items-center h-[52px] px-7 bg-[#F8FAFC] border-b border-[#EEF2F6] rounded-t-xl"
                 :style="{ gridTemplateColumns: tableGrid }"
               >
                 <div class="text-[14px] font-bold text-[#94A3B8]">序号</div>
@@ -399,7 +399,7 @@ export default defineComponent({
                 :key="form.id"
                 @click="$emit('edit', form)"
                 class="group grid gap-4 items-center min-h-[72px] px-7 py-3 cursor-pointer
-                       border-b border-[#F1F5F9] last:border-b-0 transition-colors
+                       border-b border-[#F1F5F9] last:border-b-0 last:rounded-b-xl transition-colors
                        odd:bg-white even:bg-[#FAFBFC] hover:bg-blue-50"
                 :style="{ gridTemplateColumns: tableGrid }"
               >

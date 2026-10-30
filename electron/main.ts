@@ -42,7 +42,10 @@ if (!gotTheLock) {
     // 开发模式下加载 Vite 开发服务器
     if (process.env.NODE_ENV === 'development') {
       mainWindow.loadURL('http://localhost:5173');
-      mainWindow.webContents.openDevTools();
+      // 开发时默认不弹 DevTools，需要时用 OPEN_DEVTOOLS=1 启动
+      if (process.env.OPEN_DEVTOOLS === '1') {
+        mainWindow.webContents.openDevTools();
+      }
     } else {
       // 生产模式下加载打包后的文件
       // 在 ASAR 打包的应用中，需要使用特殊的方法访问资源
