@@ -27,9 +27,9 @@
   },
   "build": {
     "appId": "com.daifei.dafei-win7-0317",
-    "productName": "dafei-1029",
+    "productName": "dafei-1030",
     "directories": {
-      "output": "release/dafei-1029"
+      "output": "release/dafei-1030"
     },
     "files": [
       "dist/**/*",
@@ -46,10 +46,10 @@
           ]
         }
       ],
-      "artifactName": "dafei-1029.exe"
+      "artifactName": "dafei-1030.exe"
     },
     "portable": {
-      "artifactName": "dafei-1029.exe"
+      "artifactName": "dafei-1030.exe"
     }
   }
 }
