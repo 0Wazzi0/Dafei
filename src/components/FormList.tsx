@@ -1,9 +1,8 @@
-
 import { defineComponent } from 'vue';
 import { getFormsFromDB, deleteFormFromDB } from '../services/db.ts';
 import { IconPlus, IconEdit, IconFileText, IconLoader2, IconTrash2, IconSearch, IconDownload, IconClipboard } from './Icons.ts';
 
-// 澹版槑鍏ㄥ眬 XLSX 鍙橀噺锛岄伩鍏?TS 鎶ラ敊
+// 声明全局 XLSX 变量，避免 TS 报错
 declare const XLSX: any;
 
 export default defineComponent({
@@ -22,46 +21,75 @@ export default defineComponent({
       deleteConfirmLabel: '',
       deleteError: '',
       deleting: false,
-      // 鍒嗛〉鐩稿叧
+      // 分页相关
       currentPage: 1,
-      pageSize: 10
+      pageSize: 10,
+      // 表格列宽：表头与数据行共用同一条模板，保证逐列对齐
+      tableGrid: '56px 158px 84px minmax(0, 1.3fr) 84px 140px 118px minmax(0, 1fr) 48px'
     };
   },
   computed: {
     filteredForms() {
       const query = this.searchQuery.trim().toLowerCase();
       const start = this.startDate ? new Date(this.startDate).getTime() : 0;
-      const end = this.endDate ? new Date(this.endDate).getTime() + 86400000 : Infinity; // 鍖呭惈缁撴潫褰撳ぉ
-      
+      const end = this.endDate ? new Date(this.endDate).getTime() + 86400000 : Infinity; // 包含结束当天
+
       return this.forms.filter(form => {
         const style = (form.styleNumber || '').toLowerCase();
         const customer = (form.customer || '').toLowerCase();
         const remark = (form.remark || '').toLowerCase();
         const time = form.createdAt || 0;
-        
+
         const matchesSearch = !query || style.includes(query) || customer.includes(query) || remark.includes(query);
         const matchesTime = time >= start && time <= end;
-        
+
         return matchesSearch && matchesTime;
       });
     },
-    
+
     // 分页后的数据
     paginatedForms() {
       const start = (this.currentPage - 1) * this.pageSize;
       const end = start + this.pageSize;
       return this.filteredForms.slice(start, end);
     },
-    
+
     totalPages() {
       return Math.ceil(this.filteredForms.length / this.pageSize);
     },
-    
+
     showingRange() {
       if (this.filteredForms.length === 0) return '共 0 条';
       const start = (this.currentPage - 1) * this.pageSize + 1;
       const end = Math.min(this.currentPage * this.pageSize, this.filteredForms.length);
-      return `第 ${start}-${end} 条，共 ${this.filteredForms.length} 条`;
+      return `第 ${start}–${end} 条，共 ${this.filteredForms.length} 条`;
+    },
+
+    isFiltered() {
+      return this.filteredForms.length !== this.forms.length;
+    },
+
+    // 统计条：均基于当前筛选结果，避免"筛选后数字还是全量"的误导
+    statOrderCount() {
+      return this.filteredForms.length;
+    },
+
+    statTotalPieces() {
+      return this.filteredForms.reduce((sum, form) => sum + this.calculateTotal(form.data || {}), 0);
+    },
+
+    statTotalAmount() {
+      return this.filteredForms.reduce((sum, form) => sum + this.calculateOrderAmount(form), 0);
+    },
+
+    statMonthCount() {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+      return this.filteredForms.filter(form => {
+        const d = new Date(form.createdAt || 0);
+        return d.getFullYear() === year && d.getMonth() === month;
+      }).length;
     }
   },
   mounted() {
@@ -79,21 +107,21 @@ export default defineComponent({
         this.loading = false;
       }
     },
-    
-    // 缈婚〉鏂规硶
+
+    // 翻页方法
     goToPage(page: number) {
       if (page < 1 || page > this.totalPages) return;
       this.currentPage = page;
     },
-    
+
     prevPage() {
       this.goToPage(this.currentPage - 1);
     },
-    
+
     nextPage() {
       this.goToPage(this.currentPage + 1);
     },
-    
+
     handleDelete(id: string, e: MouseEvent) {
       if (e && e.stopPropagation) e.stopPropagation();
       const form = this.forms.find(f => f.id === id);
@@ -128,12 +156,12 @@ export default defineComponent({
         this.deleting = false;
       }
     },
-    
+
     calculateTotal(data: any) {
       return Object.values(data).reduce((a: number, b: any) => a + (Number(b) || 0), 0);
     },
-    
-    // 璁＄畻璁㈠崟閲戦
+
+    // 计算订单金额
     calculateOrderAmount(form: any) {
       const totalQty = this.calculateTotal(form.data);
       const additionalFee = Number(form.additionalFee) || 0;
@@ -147,7 +175,19 @@ export default defineComponent({
       // 单价未填但填了其他费用时，总额至少应包含其他费用
       return additionalFee;
     },
-    
+
+    // 千分位，避免四位数以上要数零
+    formatNumber(value: number) {
+      return (Number(value) || 0).toLocaleString('zh-CN');
+    },
+
+    formatAmount(value: number) {
+      return '¥' + (Number(value) || 0).toLocaleString('zh-CN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    },
+
     formatDate(timestamp: number) {
       const d = new Date(timestamp);
       return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
@@ -193,7 +233,7 @@ export default defineComponent({
         { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }
       ];
 
-      // 璁剧疆鍒楀
+      // 设置列宽
       ws['!cols'] = [
         { wch: 8 },
         { wch: 15 },
@@ -206,10 +246,10 @@ export default defineComponent({
         { wch: 24 }
       ];
 
-      // 鍒涘缓宸ヤ綔绨垮苟涓嬭浇
+      // 创建工作簿并下载
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "订单导出");
-      
+
       const fileName = this.buildExcelFileName();
       XLSX.writeFile(wb, fileName, { bookType: 'xlsx' });
     },
@@ -219,213 +259,253 @@ export default defineComponent({
     }
   },
   template: `
-    <div class="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-800">青蓝服装裁剪工作室</h1>
-            <p class="text-gray-500 mt-1">订单管理系统 v2.0</p>
+    <div class="h-[calc(100vh-64px)] flex flex-col bg-[#F4F6F9] overflow-hidden">
+      <div class="flex-1 min-h-0 flex flex-col gap-4 px-6 py-6">
+
+        <!-- 页头 -->
+        <div class="shrink-0 flex items-center justify-between gap-6">
+          <div class="min-w-0">
+            <h1 class="text-[32px] leading-[1.15] font-bold text-[#0F172A]">青蓝服装裁剪工作室</h1>
+            <p class="text-[15px] text-[#64748B] mt-1.5">
+              共 {{ forms.length }} 张裁床单
+              <span v-if="isFiltered" class="text-blue-600">· 已筛选出 {{ filteredForms.length }} 张</span>
+              <span v-else>· 订单管理系统 v2.0</span>
+            </p>
           </div>
-          <button 
+          <button
             @click="handleCreate"
-            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 font-semibold shadow-lg shadow-blue-600/20 transition-all transform hover:scale-105 whitespace-nowrap"
+            class="shrink-0 h-14 px-7 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[19px] font-bold
+                   flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-colors"
           >
-            <icon-plus :size="20" />
-            新建裁床单          </button>
+            <icon-plus :size="22" />
+            新建裁床单
+          </button>
         </div>
 
-        <!-- Toolbar: Filters & Export -->
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-8 flex flex-col lg:flex-row gap-4 items-end">
-          <div class="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-            <div>
-              <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">搜索客户/款号</label>
-              <div class="relative">
-                <icon-search class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
-                <input 
-                  v-model="searchQuery"
-                  type="text"
-                  placeholder="输入关键字..."
-                  class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                />
-              </div>
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">开始时间</label>
-              <input 
-                v-model="startDate"
-                type="date"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-400 mb-1 uppercase">结束时间</label>
-              <input 
-                v-model="endDate"
-                type="date"
-                class="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-              />
-            </div>
+        <!-- 统计条 -->
+        <div class="shrink-0 bg-white rounded-xl border border-[#E6EAF0] px-8 py-4 grid grid-cols-4 gap-6">
+          <div>
+            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatNumber(statOrderCount) }}</div>
+            <div class="text-[14px] text-[#64748B] mt-0.5">订单总数</div>
           </div>
-          
-          <button 
-            @click="exportToExcel"
-            class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-lg flex items-center gap-2 font-bold shadow-md shadow-emerald-600/10 transition-all whitespace-nowrap"
+          <div>
+            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatNumber(statTotalPieces) }}</div>
+            <div class="text-[14px] text-[#64748B] mt-0.5">总件数</div>
+          </div>
+          <div>
+            <div class="text-[28px] leading-tight font-bold text-blue-700">{{ formatAmount(statTotalAmount) }}</div>
+            <div class="text-[14px] text-[#64748B] mt-0.5">总金额</div>
+          </div>
+          <div>
+            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatNumber(statMonthCount) }}</div>
+            <div class="text-[14px] text-[#64748B] mt-0.5">本月新增</div>
+          </div>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="shrink-0 bg-white rounded-xl border border-[#E6EAF0] p-3.5 flex items-center gap-3">
+          <div class="relative flex-1 min-w-0">
+            <icon-search class="absolute left-4 top-1/2 -translate-y-1/2 text-[#94A3B8]" :size="20" />
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="搜索 客户 / 款号 / 备注"
+              class="w-full h-12 pl-12 pr-4 rounded-[10px] bg-[#F1F5F9] border border-transparent
+                     text-[17px] text-[#0F172A] placeholder-[#94A3B8]
+                     focus:bg-white focus:border-blue-500 outline-none transition-colors"
+            />
+          </div>
+          <label
+            class="shrink-0 flex items-center gap-1.5 h-12 pl-3.5 pr-2.5 rounded-[10px] bg-[#F1F5F9]
+                   border border-transparent transition-colors
+                   focus-within:bg-white focus-within:border-blue-500"
           >
-            <icon-download :size="18" />
+            <span class="text-[15px] text-[#94A3B8] shrink-0">从</span>
+            <input
+              v-model="startDate"
+              type="date"
+              class="w-[122px] bg-transparent text-[16px] text-[#334155] outline-none"
+            />
+          </label>
+          <label
+            class="shrink-0 flex items-center gap-1.5 h-12 pl-3.5 pr-2.5 rounded-[10px] bg-[#F1F5F9]
+                   border border-transparent transition-colors
+                   focus-within:bg-white focus-within:border-blue-500"
+          >
+            <span class="text-[15px] text-[#94A3B8] shrink-0">到</span>
+            <input
+              v-model="endDate"
+              type="date"
+              class="w-[122px] bg-transparent text-[16px] text-[#334155] outline-none"
+            />
+          </label>
+          <button
+            @click="exportToExcel"
+            class="shrink-0 h-12 px-6 rounded-[10px] bg-emerald-600 hover:bg-emerald-700 text-white
+                   text-[17px] font-bold flex items-center gap-2 transition-colors"
+          >
+            <icon-download :size="19" />
             导出 Excel
           </button>
         </div>
 
-        <!-- Loading State -->
-        <div v-if="loading" class="flex items-center justify-center min-h-[40vh] text-gray-500 gap-2">
-          <icon-loader2 class="animate-spin" /> 加载中...
+        <!-- 加载中 -->
+        <div v-if="loading" class="flex-1 min-h-0 bg-white rounded-xl border border-[#E6EAF0] flex items-center justify-center gap-3 text-[#64748B] text-[17px]">
+          <icon-loader2 class="animate-spin" :size="22" /> 加载中...
         </div>
 
-        <!-- Empty States -->
-        <div v-else-if="forms.length === 0" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-          <div class="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 text-blue-500">
+        <!-- 完全没有数据 -->
+        <div v-else-if="forms.length === 0" class="flex-1 min-h-0 bg-white rounded-xl border border-[#E6EAF0] flex flex-col items-center justify-center text-center px-6">
+          <div class="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 mb-6">
             <icon-file-text :size="40" />
           </div>
-          <h2 class="text-xl font-semibold text-gray-800 mb-2">暂无数据</h2>
-          <p class="text-gray-500 mb-6">点击右上角按钮创建您的第一张裁床单。</p>
-        </div>
-        
-        <div v-else-if="filteredForms.length === 0" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-          <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-            <icon-search :size="32" />
-          </div>
-          <h2 class="text-lg font-semibold text-gray-700 mb-2">未找到符合条件的订单</h2>
-          <p class="text-gray-500">请尝试调整搜索关键字或日期范围。</p>
+          <h2 class="text-[22px] font-bold text-[#0F172A] mb-2">暂无数据</h2>
+          <p class="text-[17px] text-[#64748B]">点击右上角「新建裁床单」创建第一张单子。</p>
         </div>
 
-        <!-- Grid List -->
-        <div v-else>
-          <!-- Table Header -->
-          <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-4 overflow-hidden">
-            <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
-              <div class="col-span-2">编号</div>
-              <div class="col-span-2">款号</div>
-              <div class="col-span-2">床次</div>
-              <div class="col-span-2">客户</div>
-              <div class="col-span-2">数量</div>
-              <div class="col-span-2 text-center">金额</div>
-            </div>
-            
-            <!-- Table Body with dividers -->
-            <div class="divide-y divide-gray-100">
-              <div 
-                v-for="(form, index) in paginatedForms" 
+        <!-- 筛选后无结果 -->
+        <div v-else-if="filteredForms.length === 0" class="flex-1 min-h-0 bg-white rounded-xl border border-[#E6EAF0] flex flex-col items-center justify-center text-center px-6">
+          <div class="w-16 h-16 bg-[#F1F5F9] rounded-full flex items-center justify-center text-[#94A3B8] mb-5">
+            <icon-search :size="32" />
+          </div>
+          <h2 class="text-[20px] font-bold text-[#0F172A] mb-2">未找到符合条件的订单</h2>
+          <p class="text-[16px] text-[#64748B]">请调整搜索关键字或日期范围。</p>
+        </div>
+
+        <!-- 表格 -->
+        <div v-else class="flex-1 min-h-0 bg-white rounded-xl border border-[#E6EAF0] overflow-hidden flex flex-col">
+          <div class="flex-1 min-h-0 overflow-auto">
+            <div class="min-w-[1000px] flex flex-col min-h-full">
+
+              <!-- 表头（跟随滚动吸顶） -->
+              <div
+                class="sticky top-0 z-10 shrink-0 grid gap-4 items-center h-[52px] px-7 bg-[#F8FAFC] border-b border-[#EEF2F6]"
+                :style="{ gridTemplateColumns: tableGrid }"
+              >
+                <div class="text-[14px] font-bold text-[#94A3B8]">序号</div>
+                <div class="text-[14px] font-bold text-[#94A3B8]">款号</div>
+                <div class="text-[14px] font-bold text-[#94A3B8]">床次</div>
+                <div class="text-[14px] font-bold text-[#94A3B8]">客户</div>
+                <div class="text-[14px] font-bold text-[#94A3B8]">数量</div>
+                <div class="text-[14px] font-bold text-[#94A3B8] text-right pr-3">金额</div>
+                <div class="text-[14px] font-bold text-[#94A3B8]">下单日期</div>
+                <div class="text-[14px] font-bold text-[#94A3B8]">备注</div>
+                <div></div>
+              </div>
+
+              <!-- 数据行 -->
+              <div
+                v-for="(form, index) in paginatedForms"
                 :key="form.id"
                 @click="$emit('edit', form)"
-                class="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-blue-50 cursor-pointer transition-colors group border-b border-gray-100 last:border-b-0"
+                class="group grid gap-4 items-center min-h-[72px] px-7 py-3 cursor-pointer
+                       border-b border-[#F1F5F9] last:border-b-0 transition-colors
+                       odd:bg-white even:bg-[#FAFBFC] hover:bg-blue-50"
+                :style="{ gridTemplateColumns: tableGrid }"
               >
-                <div class="col-span-2 flex items-center">
-                  <span class="text-sm font-medium text-gray-900">{{ (this.currentPage - 1) * this.pageSize + index + 1 }}</span>
+                <div class="text-[16px] text-[#94A3B8]">{{ (currentPage - 1) * pageSize + index + 1 }}</div>
+
+                <div class="text-[19px] font-semibold text-[#0F172A] truncate" :title="form.styleNumber">
+                  {{ form.styleNumber || '-' }}
                 </div>
-                <div class="col-span-2 flex items-center">
-                  <span class="text-sm font-medium text-gray-900 truncate" :title="form.styleNumber">{{ form.styleNumber || '-' }}</span>
+
+                <div class="text-[19px] font-semibold text-blue-600 truncate" :title="String(form.bedNumber)">
+                  {{ form.bedNumber || '0' }}
                 </div>
-                <div class="col-span-2 flex items-center">
-                  <span class="px-2 py-1 bg-gray-100 text-xs font-bold text-gray-600 rounded">{{ form.bedNumber || '0' }}</span>
+
+                <div class="text-[18px] text-[#334155] truncate" :title="form.customer">
+                  {{ form.customer || '-' }}
                 </div>
-                <div class="col-span-2 flex items-center">
-                  <span class="text-sm text-gray-600 truncate" :title="form.customer">{{ form.customer || '-' }}</span>
+
+                <div class="text-[18px] font-medium text-[#334155]">{{ formatNumber(calculateTotal(form.data)) }}</div>
+
+                <div class="text-[19px] font-bold text-[#0F172A] text-right pr-3 whitespace-nowrap">
+                  {{ formatAmount(calculateOrderAmount(form)) }}
                 </div>
-                <div class="col-span-2 flex items-center">
-                  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
-                    {{ calculateTotal(form.data) }}
-                  </span>
+
+                <div class="text-[16px] text-[#94A3B8] whitespace-nowrap">{{ formatDate(form.createdAt) }}</div>
+
+                <div class="text-[16px] truncate" :class="form.remark ? 'text-[#64748B]' : 'text-[#CBD5E1]'" :title="form.remark">
+                  {{ form.remark || '—' }}
                 </div>
-                <div class="col-span-2 flex items-center justify-center gap-2">
-                  <span class="text-sm font-medium text-gray-900">
-                    ¥{{ calculateOrderAmount(form).toFixed(2) }}
-                  </span>
-                  <button 
+
+                <div class="flex justify-end">
+                  <button
                     @click.stop="handleDelete(form.id, $event)"
-                    class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                    class="w-9 h-9 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50
+                           flex items-center justify-center transition-all
+                           opacity-0 group-hover:opacity-100 focus:opacity-100"
                     title="删除订单"
                   >
-                    <icon-trash2 :size="16" />
+                    <icon-trash2 :size="17" />
                   </button>
                 </div>
-                <div class="col-span-12 -mt-2 flex items-center justify-between gap-4 text-sm text-gray-500">
-                  <span v-if="form.remark" class="truncate" :title="form.remark">备注：{{ form.remark }}</span>
-                  <span class="shrink-0 ml-auto">创建时间：{{ formatDate(form.createdAt) }}</span>
-                </div>
               </div>
-            </div>
-          </div>
-          
-          <!-- Pagination -->
-          <div class="bg-white rounded-lg shadow-sm border border-gray-200 px-6 py-4 flex items-center justify-between">
-            <div class="text-sm text-gray-600">
-              {{ showingRange }}
-            </div>
-            
-            <div class="flex items-center gap-2">
-              <button
-                @click="prevPage"
-                :disabled="currentPage === 1"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                上一页              </button>
-              
-              <!-- Page Numbers -->
-              <div class="flex items-center gap-1">
-                <template v-for="page in totalPages" :key="page">
-                  <button
-                    v-if="page === 1 || page === totalPages || (page >= currentPage - 2 && page <= currentPage + 2)"
-                    @click="goToPage(page)"
-                    :class="[
-                      'w-10 h-10 text-sm font-medium rounded-lg transition-colors',
-                      currentPage === page 
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                    ]"
-                  >
-                    {{ page }}
-                  </button>
-                  <span v-else-if="page === currentPage - 3 || page === currentPage + 3" key="ellipsis-{{page}}" class="px-2 text-gray-400">
-                    ...
-                  </span>
-                </template>
-              </div>
-              
-              <button
-                @click="nextPage"
-                :disabled="currentPage === totalPages"
-                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                下一页              </button>
+
             </div>
           </div>
         </div>
+
+        <!-- 分页 -->
+        <div v-if="!loading && filteredForms.length > 0" class="shrink-0 h-[64px] bg-white rounded-xl border border-[#E6EAF0] px-7 flex items-center justify-between gap-4">
+          <div class="text-[16px] text-[#64748B] whitespace-nowrap">{{ showingRange }}</div>
+
+          <div class="flex items-center gap-2">
+            <button
+              @click="prevPage"
+              :disabled="currentPage === 1"
+              class="h-11 px-4 rounded-[9px] text-[16px] font-medium transition-colors
+                     disabled:opacity-40 disabled:cursor-not-allowed
+                     bg-[#F1F5F9] text-[#475569] hover:bg-[#E2E8F0] disabled:hover:bg-[#F1F5F9]"
+            >
+              上一页
+            </button>
+
+            <div class="flex items-center gap-2">
+              <template v-for="page in totalPages" :key="page">
+                <button
+                  v-if="page === 1 || page === totalPages || (page >= currentPage - 2 && page <= currentPage + 2)"
+                  @click="goToPage(page)"
+                  :class="[
+                    'w-11 h-11 rounded-[9px] text-[17px] font-medium transition-colors',
+                    currentPage === page
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white border border-[#E2E8F0] text-[#475569] hover:bg-[#F1F5F9]'
+                  ]"
+                >
+                  {{ page }}
+                </button>
+                <span v-else-if="page === currentPage - 3 || page === currentPage + 3" :key="'e' + page" class="px-1 text-[#94A3B8]">…</span>
+              </template>
+            </div>
+
+            <button
+              @click="nextPage"
+              :disabled="currentPage === totalPages"
+              class="h-11 px-4 rounded-[9px] text-[16px] font-medium transition-colors
+                     disabled:opacity-40 disabled:cursor-not-allowed
+                     bg-white border border-[#E2E8F0] text-blue-700 hover:bg-[#F1F5F9] disabled:hover:bg-white"
+            >
+              下一页
+            </button>
+          </div>
+        </div>
+
       </div>
 
       <div v-if="deleteConfirmId" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
-        <div class="w-full max-w-sm bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-          <div class="px-6 py-5 border-b border-gray-200">
-            <h3 class="text-lg font-bold text-gray-900">确认删除订单</h3>
-            <p class="text-sm text-gray-500 mt-2">{{ deleteConfirmLabel || '这个订单' }}</p>
-            <p v-if="deleteError" class="text-sm text-red-600 mt-3">{{ deleteError }}</p>
+        <div class="w-full max-w-sm bg-white rounded-xl shadow-xl border border-[#E2E8F0] overflow-hidden">
+          <div class="px-6 py-5 border-b border-[#E2E8F0]">
+            <h3 class="text-[19px] font-bold text-[#0F172A]">确认删除订单</h3>
+            <p class="text-[16px] text-[#64748B] mt-2">{{ deleteConfirmLabel || '这个订单' }}</p>
+            <p v-if="deleteError" class="text-[15px] text-red-600 mt-3">{{ deleteError }}</p>
           </div>
-          <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
-            <button @click="cancelDelete" :disabled="deleting" class="h-10 px-4 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-60">取消</button>
-            <button @click="confirmDelete" :disabled="deleting" class="h-10 px-4 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60">{{ deleting ? '删除中...' : '确认删除' }}</button>
+          <div class="px-6 py-4 bg-[#F8FAFC] flex justify-end gap-3">
+            <button @click="cancelDelete" :disabled="deleting" class="h-11 px-5 rounded-lg bg-white border border-[#E2E8F0] text-[16px] text-[#334155] hover:bg-[#F1F5F9] disabled:opacity-60">取消</button>
+            <button @click="confirmDelete" :disabled="deleting" class="h-11 px-5 rounded-lg bg-red-600 text-white text-[16px] hover:bg-red-700 disabled:opacity-60">{{ deleting ? '删除中...' : '确认删除' }}</button>
           </div>
         </div>
       </div>
     </div>
   `
 });
-
-
-
-
-
-
-
-
-
-

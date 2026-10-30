@@ -133,17 +133,29 @@ export default defineComponent({
   },
   template: `
     <div class="antialiased text-gray-900">
-      <div v-if="view === 'list'" class="no-print bg-white shadow-sm border-b">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 class="text-xl font-bold text-gray-800">Dafei 裁床单大师</h1>
-          <button @click="openDataManagement" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 text-sm font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
-              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
-              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
-            </svg>
-            数据管理
-          </button>
+      <div v-if="view === 'list'" class="no-print bg-white border-b border-[#E6EAF0] h-16 flex items-center">
+        <div class="w-full px-6 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-[10px] bg-blue-600 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9V2h12v7"></path>
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                <rect x="6" y="14" width="12" height="8"></rect>
+              </svg>
+            </div>
+            <span class="text-[19px] font-bold text-[#0F172A]">Dafei 裁床单大师</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <span class="text-[16px] font-medium text-blue-600">订单列表</span>
+            <button @click="openDataManagement" class="h-10 px-4 rounded-[9px] bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-2 text-[16px] font-medium">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+              </svg>
+              数据管理
+            </button>
+          </div>
         </div>
       </div>
 
