@@ -22,6 +22,7 @@ import { buildLabels, filterLabelsByBundles } from '../domain/labels.ts';
 import LabelCard from './LabelCard.tsx';
 import PrintPreview from './PrintPreview.tsx';
 import PrintDialog from './PrintDialog.tsx';
+import MatrixTable from './MatrixTable.tsx';
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -32,6 +33,7 @@ export default defineComponent({
     LabelCard,
     PrintPreview,
     PrintDialog,
+    MatrixTable,
     IconPlus, IconSave, IconPrinter, IconArrowLeft, 
     IconGripVertical, IconGripHorizontal, IconCopy, IconTrash2, IconClipboard,
     IconDownload, IconUpload, IconDatabase,
@@ -952,74 +954,30 @@ export default defineComponent({
             </div>
           </div>
 
-          <div class="overflow-x-auto pb-2">
-            <table class="min-w-full border-collapse text-gray-900">
-              <thead>
-                <tr class="bg-gray-50">
-                  <th class="sticky left-0 z-20 w-[200px] min-w-[200px] max-w-[200px] h-24 border border-gray-300 bg-gray-50 relative align-top p-0">
-                    <div class="absolute left-0 top-0 w-full h-full" style="background: linear-gradient(to top right, transparent 49.4%, #d1d5db 50%, transparent 50.6%);"></div>
-                    <span class="absolute left-4 bottom-4 text-base font-bold">颜色</span>
-                    <span class="absolute right-4 top-3 text-base font-bold">尺码</span>
-                  </th>
-                  <th v-for="(col, colIdx) in formData.cols" :key="'header-' + col.id" class="w-[112px] min-w-[112px] max-w-[112px] h-24 border border-gray-300 bg-gray-50 px-3 group relative">
-                    <button
-                      type="button"
-                      draggable="true"
-                      @dragstart="handleDragStart($event, colIdx, 'col')"
-                      @dragover.prevent="handleDragOver($event, colIdx)"
-                      @drop="handleDropCol($event, colIdx)"
-                      @dragend="handleDragEnd"
-                      title="拖动调整尺码顺序"
-                      class="absolute left-2 top-2 z-10 flex h-7 w-7 cursor-grab items-center justify-center rounded text-gray-400 hover:bg-blue-100 hover:text-blue-600 active:cursor-grabbing"
-                    >
-                      <IconGripHorizontal :size="16" />
-                    </button>
-                    <input :value="col.name" @input="updateColName(colIdx, $event)" class="w-full bg-transparent text-center text-2xl font-bold outline-none focus:text-blue-600" />
-                    <button @click="deleteCol(colIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
-                    <label class="absolute right-4 bottom-3 flex flex-col items-center gap-1 text-sm text-gray-600 font-medium">
-                      <span>列复制<input type="checkbox" v-model="colSmartFill[col.id]" class="w-5 h-5" /></span>
-                      
-                    </label>
-                  </th>
-                  <th class="min-w-[120px] h-24 border border-gray-300 bg-gray-50 text-lg font-bold">合计</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(row, rowIdx) in formData.rows" :key="'row-' + row.id" class="group">
-                  <th class="sticky left-0 z-10 w-[200px] min-w-[200px] max-w-[200px] h-20 border border-gray-300 bg-gray-50 px-4 relative">
-                    <button
-                      type="button"
-                      draggable="true"
-                      @dragstart="handleDragStart($event, rowIdx, 'row')"
-                      @dragover.prevent="handleDragOver($event, rowIdx)"
-                      @drop="handleDropRow($event, rowIdx)"
-                      @dragend="handleDragEnd"
-                      title="拖动调整颜色顺序"
-                      class="absolute left-2 top-2 z-10 flex h-7 w-7 cursor-grab items-center justify-center rounded text-gray-400 hover:bg-blue-100 hover:text-blue-600 active:cursor-grabbing"
-                    >
-                      <IconGripVertical :size="16" />
-                    </button>
-                    <input :value="row.name" @input="updateRowName(rowIdx, $event)" class="w-full bg-transparent text-center text-2xl font-bold outline-none focus:text-blue-600" />
-                    <button @click="deleteRow(rowIdx)" class="absolute right-2 top-2 w-7 h-7 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition">x</button>
-                    <span v-if="rowSmartFill[row.id]" class="absolute left-2 top-2 w-6 h-6 rounded-full bg-blue-600 text-white text-sm flex items-center justify-center">{{ rowIdx + 1 }}</span>
-                  </th>
-                  <td v-for="col in formData.cols" :key="'cell-' + row.id + '-' + col.id" class="w-[112px] min-w-[112px] max-w-[112px] h-20 border border-gray-300 bg-white text-center">
-                    <input :value="getCellValue(row.id, col.id)" @input="updateCell(row.id, col.id, $event.target.value)" @focus="handleInputFocus" @keydown="handleCellKeyDown($event, row.id, col.id)" :data-row="row.id" :data-col="col.id" class="w-full h-full bg-transparent text-center text-2xl outline-none focus:bg-blue-50 focus:ring-2 focus:ring-blue-500" />
-                  </td>
-                  <td class="min-w-[120px] h-20 border border-gray-300 bg-gray-50 text-center text-xl font-bold">{{ colorTotals[row.id] || 0 }}</td>
-                </tr>
-                <tr>
-                  <th class="sticky left-0 z-10 w-[200px] min-w-[200px] max-w-[200px] h-16 border border-gray-300 bg-gray-50 text-base font-bold">
-                    <label class="inline-flex flex-col items-center gap-1 text-gray-600">
-                      <span>行复制<input type="checkbox" :checked="isAllRowFillEnabled" @change="toggleAllRowFill" class="w-5 h-5" /></span>
-                    </label>
-                  </th>
-                  <td v-for="col in formData.cols" :key="'total-' + col.id" class="w-[112px] min-w-[112px] max-w-[112px] h-16 border border-gray-300 bg-gray-50 text-center text-xl font-bold">{{ getColTotal(col.id) }}</td>
-                  <td class="min-w-[120px] h-16 border border-gray-300 bg-blue-50 text-center text-xl font-bold text-blue-700">{{ totalPieces }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <matrix-table
+            :rows="formData.rows"
+            :cols="formData.cols"
+            :data="formData.data"
+            :row-smart-fill="rowSmartFill"
+            :col-smart-fill="colSmartFill"
+            :color-totals="colorTotals"
+            :size-totals="sizeTotals"
+            :total-pieces="totalPieces"
+            :is-all-row-fill-enabled="isAllRowFillEnabled"
+            @update-row-name="updateRowName"
+            @update-col-name="updateColName"
+            @delete-row="deleteRow"
+            @delete-col="deleteCol"
+            @update-cell="updateCell"
+            @cell-focus="handleInputFocus"
+            @cell-keydown="handleCellKeyDown"
+            @drag-start="handleDragStart"
+            @drag-over="handleDragOver"
+            @drop-row="handleDropRow"
+            @drop-col="handleDropCol"
+            @drag-end="handleDragEnd"
+            @toggle-all-row-fill="toggleAllRowFill"
+          />
         </div>
       </div>
     </div>
