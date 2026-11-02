@@ -38,7 +38,9 @@ Dafei 是一个本地运行的服装裁床单管理桌面应用，主要用于�
 
 ```json
 {
-  "vue": "3"
+  "pinyin-pro": "^3.29.5",
+  "vue": "3",
+  "xlsx": "^0.18.5"
 }
 ```
 
@@ -48,10 +50,13 @@ Dafei 是一个本地运行的服装裁床单管理桌面应用，主要用于�
 {
   "@types/node": "^22.14.0",
   "@vitejs/plugin-vue": "^5.2.4",
+  "autoprefixer": "^10.6.2",
   "concurrently": "^8.2.2",
   "cross-env": "^7.0.3",
   "electron": "^14.2.9",
   "electron-builder": "^26.7.0",
+  "postcss": "^8.5.32",
+  "tailwindcss": "^3.4.19",
   "typescript": "~5.8.2",
   "vite": "^6.2.0",
   "wait-on": "^7.2.0"
@@ -60,8 +65,14 @@ Dafei 是一个本地运行的服装裁床单管理桌面应用，主要用于�
 
 ### 外部 CDN
 
-- Tailwind CSS：`index.html` 中通过 `cdn.tailwindcss.com` 引入；
-- SheetJS：`index.html` 中通过 SheetJS CDN 引入，当前脚本版本为 `xlsx-0.20.1`。
+当前**没有任何外部 CDN 依赖**。Tailwind 与 SheetJS 已改为本地依赖：
+
+- Tailwind：`tailwind.config.js` + `postcss.config.js` + `src/styles.css`，构建期生成静态 CSS；
+- SheetJS：`src/components/FormList.tsx` 中 `import * as XLSX from 'xlsx'`。
+
+这一项改动的原因：旧版本从 `cdn.tailwindcss.com` 与 `cdn.sheetjs.com` 加载，断网时全站失去样式、导出 Excel 报 `XLSX is not defined`，而 portable exe 多部署在无外网的车间电脑上。
+
+注意：npm 渠道的 `xlsx` 最新即 `0.18.5`；原先 CDN 上的 `0.20.1` 只能通过 SheetJS 自有渠道获取。当前代码用到的 `utils.aoa_to_sheet` / `utils.book_new` / `utils.book_append_sheet` / `writeFile` / `!merges` / `!cols` 在 0.18.5 中均可用。
 
 ## 4. 常用命令
 
@@ -72,10 +83,13 @@ npm run dev
 # 构建前端
 npm run build
 
+# 运行单元测试（node:test，直接跑 TypeScript，无需额外框架）
+npm test
+
 # 编译 Electron 主进程
 npm run compile:electron
 
-# 启动 Electron 开发模式
+# 启动 Electron 开发模式（自动编译主进程 + 起 Vite + 等端口就绪后启动 Electron）
 npm run electron:dev
 
 # 构建前端、编译 Electron 并打包 Windows portable ia32 exe
@@ -85,9 +99,15 @@ npm run pack
 当前 `npm run pack` 的实际流程是：
 
 1. 执行 `vite build`；
-2. 执行 `tsc -p tsconfig.electron.json`；
-3. 执行 `build-electron-main.cjs`，将 Electron 主进程转换为 CommonJS 文件；
-4. 使用 electron-builder 打包 portable、ia32 版本。
+2. 执行 `tsc -p tsconfig.electron.json`，直接输出 CommonJS 格式的主进程文件；
+3. 使用 electron-builder 打包 portable、ia32 版本。
+
+历史上的第 3 步「用 build-electron-main.cjs 把 ESM 转 CJS」已删除：`tsconfig.electron.json` 的 `module` 本来就是 `CommonJS`，tsc 输出已是 `require` 形式，那个脚本的 `import ... from` 正则永远匹配不到，实际只做了 `main.js` 到 `main.cjs` 的复制，而 `package.json` 的 `main` 指向的正是 `main.js`。
+
+开发时可以二选一：
+
+- `npm run electron:dev`：一条命令起完整开发环境；
+- `run-dev.bat`：先手动 `npm run dev`，再双击该脚本，以 `--remote-debugging-port=9222` 启动 Electron，便于连接调试器。
 
 ## 5. 当前目录结构
 
@@ -96,30 +116,53 @@ dafei/
 ├── src/
 │   ├── App.tsx                    # 页面状态、哈希路由和页面切换
 │   ├── index.tsx                  # Vue 应用入口
+│   ├── styles.css                 # 样式入口（@tailwind base/components/utilities）
 │   ├── types.ts                   # CuttingForm、MatrixHeader 等类型
+│   ├── domain/                    # 纯函数层：业务规则的唯一实现
+│   │   ├── money.ts               # 金额与件数（含 totalAmount 回退规则）
+│   │   ├── bundle.ts              # 扎号分配与扎明细
+│   │   ├── matrix.ts              # 颜色/尺码小计、同名合并汇总
+│   │   ├── labels.ts              # 热敏标签数据生成、按扎号筛选
+│   │   └── pool.ts                # 颜色池/尺码池/部位池读写
 │   ├── components/
-│   │   ├── FormList.tsx           # 首页订单列表
+│   │   ├── FormList.tsx           # 首页订单列表、Excel 导出
 │   │   ├── FormEditor.tsx         # 新建/编辑订单、二维表格和标签打印
 │   │   ├── CuttingReport.tsx      # 裁床单报表和报表打印
 │   │   ├── DataManager.tsx        # JSON 数据导入、导出和清空
 │   │   └── Icons.ts               # 图标组件
 │   └── services/
-│       └── db.ts                  # IndexedDB 数据访问和 JSON 订单备份
+│       ├── db.ts                  # IndexedDB 数据访问和 JSON 订单备份
+│       └── poolMatch.ts           # 颜色池/尺码池的拼音模糊匹配
+├── tests/                         # node:test 单元测试
+│   ├── money.test.ts              # 金额规则
+│   ├── bundle.test.ts             # 扎号顺序与连续性
+│   ├── matrix.test.ts             # 小计与同名合并
+│   ├── labels.test.ts             # 标签张数、页码、部位展开
+│   └── pool-match.test.ts         # 拼音/首字母匹配
 ├── electron/
 │   ├── main.ts                    # Electron 主进程、窗口和用户数据目录
 │   └── preload.js                 # preload 文件
-├── build-electron-main.cjs        # 主进程编译结果转换脚本
-├── index.html                     # 页面入口、CDN 和打印 CSS
+├── index.html                     # 页面入口和打印 CSS
+├── tailwind.config.js             # Tailwind 扫描范围
+├── postcss.config.js              # PostCSS 插件
 ├── package.json                   # npm 脚本、依赖和 electron-builder 配置
 ├── package-lock.json              # npm 依赖锁定文件
 ├── vite.config.ts                 # Vite 配置
 ├── tsconfig.json                  # 前端 TypeScript 配置
 ├── tsconfig.electron.json         # Electron 主进程 TypeScript 配置
-├── program.md                    # 当前项目说明文档
+├── run-dev.bat                    # 开发时以调试端口启动 Electron
+├── program.md                     # 当前项目说明文档
 └── release/                       # 打包输出目录，生成后存在
 ```
 
 旧的根目录 `components/`、`services/`、`App.tsx`、`index.tsx` 等不属于当前源码入口。当前代码引用的是 `src/` 下的文件。
+
+`src/domain/` 是业务规则的唯一实现处。历史上一部分规则（金额、扎号、汇总）在三个组件里各写一遍且互不一致，现已全部收敛到这里。修改这些规则时只改 domain 层，不要在组件里另写一份。
+
+`tests/` 下用例的期望值取自重构前的实现，作为行为基线。改动 domain 层后必须让 `npm test` 保持通过。
+
+`build-electron-main.cjs` 已删除；`dist-electron/`、`dist/`、`release/` 均为构建产物，不纳入版本库。
+
 
 ## 6. 主要功能和实现位置
 
@@ -198,13 +241,21 @@ ${row.id}_${col.id}
 - 首列颜色列固定显示；
 - 横向内容过多时，后续列可通过横向滚动查看。
 
-金额逻辑当前为：
+金额规则由 `src/domain/money.ts` 的 `orderAmount()` 统一实现，按优先级：
 
 ```text
-总金额 = 单价 × 订单数量
+1. 有有效单价：总金额 = 单价 × 订单数量 + 其他费用
+2. 无有效单价、但有 totalAmount：直接使用 totalAmount
+3. 两者都没有：仅其他费用
 ```
 
-`additionalFee` 作为单独的附加费用字段保存，默认值为 `0`。当前列表和报表中的金额计算主要使用单价 × 数量；附加费用在订单数据和 Excel 中单独保留。
+「有效单价」指能转成有限数字的值；空字符串、null、undefined 一律视为未填，而不是 0。这个区分决定了历史订单能否正确回退到 `totalAmount`。
+
+`additionalFee` 默认值为 `0`，在列表中作为独立列导出。
+
+保存时 `totalAmount` 的去留由 `totalAmountOnSave()` 决定：有有效单价才清空该字段（金额可由单价推导），无有效单价则原样保留。
+
+重构前这套规则在 `FormEditor`、`FormList`、`CuttingReport` 中各写一遍且互不一致，导致只有 `totalAmount` 的历史订单在编辑页显示 0.00、而在列表和报表显示正确金额。现已收敛为单一实现，修改金额规则只改 `domain/money.ts`。
 
 ### 6.4 热敏标签打印
 
@@ -344,19 +395,21 @@ IndexedDB 配置：
 - `remark`
 - `totalAmount`
 
-其中 `totalAmount` 是兼容历史数据保留的可选字段，当前保存订单时会清除该字段，使用单价 × 数量计算金额。
+其中 `totalAmount` 是兼容历史数据保留的可选字段。保存规则：有有效单价时清空该字段（金额由单价推导），无有效单价时保留原值。
+
+注意：重构前保存逻辑无条件清空该字段。用户打开一张只有 `totalAmount` 的旧订单、点一次保存，该单的总金额就永久丢失，之后连列表和报表也会显示 0。该问题已修复，`tests/money.test.ts` 中有对应回归用例。
 
 ### 7.2 颜色池、尺码池和部位池
 
 文件：`src/components/FormEditor.tsx`
 
-使用 localStorage 保存：
+键名集中在 `src/domain/pool.ts` 的 `POOL_KEYS` 中，**键名与取值范围不可更改**，用户机器上已有数据依赖这些键。
 
 ```text
 pool_colors       # 颜色池
 pool_sizes        # 尺码池
 pool_sections     # 部位池
-pool_sections_v2  # 部位池版本标记
+pool_sections_v2  # 部位池版本标记，用于一次性补齐默认部位
 ```
 
 客户和款号历史隐藏项由 `src/services/db.ts` 写入：
@@ -364,6 +417,13 @@ pool_sections_v2  # 部位池版本标记
 ```text
 hidden_customers
 hidden_styleNumbers
+```
+
+数据管理面板的操作时间戳由 `src/components/DataManager.tsx` 写入：
+
+```text
+lastExport        # 最后导出时间
+lastImport        # 最后导入时间
 ```
 
 ### 7.3 Electron 用户数据目录
@@ -420,21 +480,22 @@ IndexedDB 和 localStorage 都由 Electron/Chromium 存放在这个 userData 根
   "version": "1.0.0",
   "build": {
     "appId": "com.daifei.dafei-win7-0317",
-    "productName": "dafei-0818",
+    "productName": "dafei-1030",
     "directories": {
-      "output": "release/dafei-0818"
+      "output": "release/${productName}"
     },
     "win": {
+      "icon": "images/icon.ico",
       "target": [
         {
           "target": "portable",
           "arch": ["ia32"]
         }
       ],
-      "artifactName": "dafei-0818.exe"
+      "artifactName": "${productName}.exe"
     },
     "portable": {
-      "artifactName": "dafei-0818.exe"
+      "artifactName": "${productName}.exe"
     }
   }
 }
@@ -444,17 +505,12 @@ IndexedDB 和 localStorage 都由 Electron/Chromium 存放在这个 userData 根
 
 - `name`：npm 项目包名，主要用于项目标识和 npm 元数据；
 - `appId`：Electron 应用唯一标识，主要用于应用身份和系统集成；
-- `productName`：应用显示名称；
-- `directories.output`：打包输出文件夹；
-- `artifactName`：最终 exe 文件名；
+- `productName`：应用显示名称，同时是**唯一需要修改的版本号字段**；
+- `directories.output`：打包输出文件夹，引用 `${productName}`；
+- `artifactName`：最终 exe 文件名，引用 `${productName}`；
 - `arch: ia32`：生成 32 位 Windows 程序。
 
-修改版本命名时，通常需要同步检查：
-
-- `productName`
-- `directories.output`
-- `win.artifactName`
-- `portable.artifactName`
+出包时只改 `productName` 一处，输出目录与 exe 文件名自动跟随。重构前三处都是硬编码，每次发版要改 4 个地方，且已出现文档与实物不一致（本文件此前记录的还是 `dafei-0818`，实际产物已是 `dafei-1030`）。
 
 `name` 和 `appId` 不应因为每天的 exe 文件名变化而随意修改，尤其不要用它们来决定数据目录。数据目录当前由 `electron/main.ts` 固定为 `Dafei`。
 
@@ -502,12 +558,23 @@ IndexedDB 和 localStorage 都由 Electron/Chromium 存放在这个 userData 根
 
 ## 11. 后续可考虑的整理方向
 
-以下内容目前没有在本次文档更新中修改代码，只作为后续维护建议：
+### 已完成（2026-11 重构）
 
-- 将打印标签生成、打印样式参数和打印控制从 `FormEditor.tsx` 拆分为独立模块；
-- 为订单、打印标签和导入导出数据增加更严格的类型；
-- 将颜色池、尺码池、部位池纳入统一备份文件；
-- 将 CDN 依赖改为本地依赖，减少离线环境下的加载风险；
-- 将打印任务改为 Electron 主进程可控的打印流程，以便记录打印机、处理失败和重试；
-- 清理历史乱码注释，避免后续维护时误解代码；
-- 补充二维表格拖动排序、数据迁移和打印任务数量的自动化测试。
+- CDN 依赖本地化：Tailwind 与 SheetJS 均改为本地依赖，产物不再请求外网，断网可用；
+- 金额、扎号、汇总、标签生成从三个组件收敛到 `src/domain/`，消除同一规则多份实现；
+- 修复历史订单金额被销毁的问题（编辑页显示 0.00、保存即抹掉 `totalAmount`）；
+- 补充单元测试：`tests/` 下 44 个用例，覆盖金额、扎号、汇总、标签、拼音匹配；
+- 清理 `FormEditor.tsx` 中 105 行死代码（含 7 个与 computed 同名的重复 getter）；
+- IndexedDB 连接单例化，导入由逐条事务改为单事务；
+- 删除冗余的 build-electron-main 构建步骤，修正 `electron:dev` 端口，版本号单一化；
+- 清除 `CuttingReport.tsx` 中 summaryMatrix 区域的乱码注释。
+
+### 仍待处理
+
+- `CuttingReport.tsx` 第 35 行附近仍有 GBK/UTF-8 混合乱码的注释。**不要用脚本批量转码**，会把中文模板正文一起破坏，只能逐处手工替换；
+- `FormEditor.tsx` 仍有约 1150 行，尚未按 UI 区块拆分为独立组件；打印标签模板在其中重复两份（预览一份、打印一份）；
+- 二维表格的键盘导航仍通过 `document.querySelector` 直接操作 DOM，应改为 ref 数组；
+- 类型偏弱：前端 `tsconfig.json` 未开 `strict`，`any` 较多；`DataManager.tsx` 与 `vite.config.ts` 各有一个既存类型错误；
+- 颜色池、尺码池、部位池仍未纳入 JSON 备份文件，换机迁移后需重新维护；
+- 打印任务仍依赖 `window.print()`，Electron 主进程未介入，无法记录打印机、处理失败与重试。该项需先在真机记录一次「只打印一部分」时的队列状态再决定方案；
+- 二维表格拖动排序、数据迁移等交互流程尚无自动化测试。

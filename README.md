@@ -25,7 +25,9 @@ Dafei是一个专业的服装裁床单管理系统，支持二维矩阵编辑、
 - Vite 构建工具
 - Electron 桌面应用框架
 - IndexedDB 本地数据存储
-- Tailwind CSS 样式框架
+- Tailwind CSS 样式框架（本地构建，非 CDN）
+- SheetJS（xlsx，本地依赖）用于 Excel 导出
+- 单元测试使用 Node 内置 `node:test`，直接运行 TypeScript
 
 ## 🔥 新增功能：单实例运行保护
 
@@ -67,6 +69,9 @@ npm run dev
 
 # 启动Electron开发模式
 npm run electron:dev
+
+# 运行单元测试
+npm test
 ```
 
 ### 生产构建
@@ -85,20 +90,35 @@ npm run pack
 
 ```
 dafei/
-├── components/          # Vue组件
-│   ├── CuttingReport.tsx
-│   ├── FormEditor.tsx
-│   ├── FormList.tsx
-│   └── Icons.ts
-├── electron/           # Electron主进程
+├── src/
+│   ├── App.tsx                 # 主应用组件、哈希路由
+│   ├── index.tsx               # 应用入口
+│   ├── styles.css              # 样式入口（Tailwind）
+│   ├── types.ts                # TypeScript类型定义
+│   ├── domain/                 # 业务规则唯一实现（纯函数）
+│   │   ├── money.ts            # 金额与件数
+│   │   ├── bundle.ts           # 扎号与扎明细
+│   │   ├── matrix.ts           # 小计与同名合并汇总
+│   │   ├── labels.ts           # 热敏标签数据
+│   │   └── pool.ts             # 颜色/尺码/部位池
+│   ├── components/
+│   │   ├── FormList.tsx        # 订单列表与Excel导出
+│   │   ├── FormEditor.tsx      # 编辑页、二维表格、标签打印
+│   │   ├── CuttingReport.tsx   # 裁床单报表
+│   │   ├── DataManager.tsx     # 数据备份
+│   │   └── Icons.ts            # 图标
+│   └── services/
+│       ├── db.ts               # IndexedDB 数据服务
+│       └── poolMatch.ts        # 拼音模糊匹配
+├── tests/                      # 单元测试
+├── electron/                   # Electron主进程
 │   ├── main.ts
 │   └── preload.js
-├── services/           # 业务逻辑
-│   └── db.ts          # IndexedDB数据库服务
-├── release/            # 打包输出目录
-├── App.tsx            # 主应用组件
-├── index.tsx          # 应用入口
-└── types.ts           # TypeScript类型定义
+├── index.html                  # 页面入口与打印样式
+├── tailwind.config.js
+├── postcss.config.js
+├── run-dev.bat                 # 开发调试启动脚本
+└── release/                    # 打包输出目录
 ```
 
 ## 数据存储与迁移
