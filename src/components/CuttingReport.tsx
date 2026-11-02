@@ -89,7 +89,7 @@ export default defineComponent({
           <div class="col-span-2"><span class="font-bold">备注 ：</span>{{ form.remark || '' }}</div>
         </div>
 
-        <!-- 琛ㄦ牸涓€锛氭墡鍙峰強数量鍒嗗竷鐭╅樀 -->
+        <!-- 表格一：扎号及数量分布矩阵 -->
         <div class="mb-10">
           <h2 class="text-lg font-bold mb-3 flex items-center gap-2">
             <span class="w-1.5 h-6 bg-blue-600"></span>
@@ -109,11 +109,11 @@ export default defineComponent({
                   <td class="border border-black p-2 font-bold bg-gray-50 print:bg-white text-xs">{{ row.name }}</td>
                   <td v-for="col in form.cols" :key="col.id" class="border border-black p-0 h-10">
                     <div v-if="getBundleNo(row.id, col.id)" class="flex h-full items-stretch">
-                      <!-- 宸︿晶锛氭墡鍙?灞呬腑 -->
+                      <!-- 左侧：扎号 居中 -->
                       <div class="flex-1 flex items-center justify-center border-r border-black bg-blue-50/30 print:bg-white text-[10px] font-bold text-blue-700">
                         {{ getBundleNo(row.id, col.id) }}
                       </div>
-                      <!-- 鍙充晶锛氭暟閲?灞呬腑 -->
+                      <!-- 右侧：数量 居中 -->
                       <div class="flex-1 flex items-center justify-center font-black text-sm">
                         {{ getCellValue(row.id, col.id) }}
                       </div>
@@ -135,7 +135,7 @@ export default defineComponent({
           <p class="text-[9px] text-gray-400 mt-1 italic">* 单元格布局：左侧为扎号，右侧为该扎件数。</p>
         </div>
 
-        <!-- 琛ㄦ牸浜岋細颜色鍙婂昂鐮佹眹鎬荤煩闃?(鍚屽悕鍚堝苟閫昏緫) -->
+        <!-- 表格二：颜色及尺码汇总矩阵（同名合并逻辑） -->
         <div class="mb-10">
           <h2 class="text-lg font-bold mb-3 flex items-center gap-2">
             <span class="w-1.5 h-6 bg-emerald-600"></span>
@@ -169,7 +169,7 @@ export default defineComponent({
           <p class="text-[9px] text-gray-400 mt-1 italic">* 此表已按名称自动合并重复的颜色或尺码行/列并计算总和。</p>
         </div>
 
-        <!-- 琛ㄦ牸涓夛細鏄庣粏 -->
+        <!-- 表格三：明细 -->
         <div>
           <h2 class="text-lg font-bold mb-3 flex items-center gap-2">
             <span class="w-1.5 h-6 bg-purple-600"></span>
