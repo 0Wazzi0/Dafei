@@ -4,12 +4,44 @@ const DB_NAME = 'FabricCutDB';
 const STORE_NAME = 'forms';
 const DB_VERSION = 1;
 
+/**
+ * 数据库连接单例。
+ *
+ * 重构前每次读写都新开一个连接且从不关闭。新建订单的草稿自动保存是
+ * 深度 watch 触发的，连续输入时会高频调用 saveFormToDB，导致连接不断累积。
+ *
+ * 现在全应用共用一个连接；连接失效（被浏览器关闭、或别处触发升级）时
+ * 自动丢弃缓存，下次调用重新打开。
+ */
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 const openDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => {
+      dbPromise = null;
+      reject(request.error);
+    };
+
+    request.onsuccess = () => {
+      const db = request.result;
+
+      // 有其它上下文请求升级版本时，必须让出连接，否则升级会一直阻塞
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+
+      // 连接被意外关闭（例如浏览器回收）时，下次调用重新打开
+      db.onclose = () => {
+        dbPromise = null;
+      };
+
+      resolve(db);
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -18,6 +50,8 @@ const openDB = (): Promise<IDBDatabase> => {
       }
     };
   });
+
+  return dbPromise;
 };
 
 export const saveFormToDB = async (form: CuttingForm): Promise<void> => {
@@ -201,34 +235,63 @@ export const exportAllData = async (): Promise<string> => {
 };
 
 /**
- * 从 JSON 导入数据
+ * 从 JSON 导入数据。
+ *
+ * 重构前每条订单各开一个事务，导入 1000 条就是 1000 个事务。
+ * 现改为单个 readwrite 事务批量写入。
+ *
+ * 单条记录如果在同步阶段写入失败（例如包含不可克隆的值），只跳过该条并计数，
+ * 不影响整批；事务级失败才判定整体失败。
  */
 export const importData = async (jsonData: string): Promise<{success: boolean, count: number, error?: string}> => {
   try {
-    const importData = JSON.parse(jsonData);
-    if (!importData.forms || !Array.isArray(importData.forms)) {
+    const payload = JSON.parse(jsonData);
+    if (!payload.forms || !Array.isArray(payload.forms)) {
       return { success: false, count: 0, error: '无效的数据格式' };
     }
 
     const db = await openDB();
-    let count = 0;
 
-    for (const form of importData.forms) {
-      try {
-        const transaction = db.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
-        await new Promise((resolve, reject) => {
+    return await new Promise((resolve) => {
+      const transaction = db.transaction([STORE_NAME], 'readwrite');
+      const store = transaction.objectStore(STORE_NAME);
+
+      let succeeded = 0;
+      let rejected = 0;
+
+      for (const form of payload.forms) {
+        try {
           const request = store.put(form);
-          request.onsuccess = () => resolve(true);
-          request.onerror = () => reject(request.error);
-        });
-        count++;
-      } catch (err) {
-        console.error('导入单条数据失败:', err);
+          request.onsuccess = () => { succeeded += 1; };
+          request.onerror = (event) => {
+            // 阻止单条失败冒泡导致整个事务回滚
+            event.preventDefault();
+            event.stopPropagation();
+            rejected += 1;
+            console.error('导入单条数据失败:', request.error);
+          };
+        } catch (err) {
+          rejected += 1;
+          console.error('导入单条数据失败:', err);
+        }
       }
-    }
 
-    return { success: true, count };
+      transaction.oncomplete = () => {
+        if (succeeded === 0 && rejected > 0) {
+          resolve({ success: false, count: 0, error: '所有记录均导入失败' });
+          return;
+        }
+        resolve({ success: true, count: succeeded });
+      };
+
+      transaction.onerror = () => {
+        resolve({ success: false, count: 0, error: transaction.error?.message || '导入失败' });
+      };
+
+      transaction.onabort = () => {
+        resolve({ success: false, count: 0, error: '导入事务被中止' });
+      };
+    });
   } catch (err: any) {
     return { success: false, count: 0, error: err.message };
   }
