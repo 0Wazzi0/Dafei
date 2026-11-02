@@ -20,6 +20,8 @@ import { buildBundleMap, countBundles } from '../domain/bundle.ts';
 import { buildColorTotals, buildSizeTotals } from '../domain/matrix.ts';
 import { buildLabels, filterLabelsByBundles } from '../domain/labels.ts';
 import LabelCard from './LabelCard.tsx';
+import PrintPreview from './PrintPreview.tsx';
+import PrintDialog from './PrintDialog.tsx';
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -28,6 +30,8 @@ export default defineComponent({
   name: 'FormEditor',
   components: {
     LabelCard,
+    PrintPreview,
+    PrintDialog,
     IconPlus, IconSave, IconPrinter, IconArrowLeft, 
     IconGripVertical, IconGripHorizontal, IconCopy, IconTrash2, IconClipboard,
     IconDownload, IconUpload, IconDatabase,
@@ -755,131 +759,34 @@ export default defineComponent({
   },
   template: `
     <!-- Thermal Label Preview Interface -->
-    <div v-if="isPreviewing" class="print-preview-shell fixed inset-0 bg-white z-50 overflow-auto p-6 print:bg-transparent print:p-0 print:z-0">
-      <!-- Actual Thermal Label Print Output -->
-      <div class="thermal-print-root hidden print:block" :style="printStyleVars">
-        <label-card v-for="label in filteredLabels" :key="'print-'+label.id" :label="label" />
-      </div>
+    <print-preview
+      v-if="isPreviewing"
+      :labels="filteredLabels"
+      :all-labels="labels"
+      :select-mode="selectMode"
+      :selected-bundles="selectedBundles"
+      :style-vars="printStyleVars"
+      @exit="exitPrintPreview"
+      @print="executePrint"
+      @toggle-select-mode="toggleSelectMode"
+      @select-all="selectAllBundles"
+      @clear-selection="clearBundleSelection"
+      @reset-style="resetPrintStyle"
+      @toggle-bundle="toggleBundleSelection"
+    />
 
-      <div class="no-print max-w-6xl mx-auto">
-        <div class="flex items-center justify-between gap-4 mb-6 border-b border-gray-200 pb-5">
-          <div>
-            <h2 class="text-2xl font-bold text-gray-900">打印预览</h2>
-            <p class="text-gray-500 mt-1">{{ selectMode ? '已选择 ' + selectedBundles.length + ' 扎' : '当前打印全部扎号' }}，共 {{ filteredLabels.length }} 张标签</p>
-          </div>
-          <div class="flex items-center gap-3">
-            <button @click="exitPrintPreview" class="h-11 px-5 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 font-medium">返回编辑</button>
-            <button @click="executePrint" class="h-11 px-5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium flex items-center gap-2">
-              <icon-printer :size="18" />
-              开始打印
-            </button>
-          </div>
-        </div>
-
-        <div class="bg-gray-50 border border-gray-200 rounded-xl p-5 mb-6">
-          <div class="flex flex-wrap items-center gap-3 mb-4">
-            <button @click="toggleSelectMode" :class="selectMode ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border border-gray-300'" class="h-10 px-4 rounded-lg font-medium transition">
-              {{ selectMode ? '按扎选择：开' : '按扎选择：关' }}
-            </button>
-            <button v-if="selectMode" @click="selectAllBundles" class="h-10 px-4 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100">全选</button>
-            <button v-if="selectMode" @click="clearBundleSelection" class="h-10 px-4 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100">清空</button>
-            <button @click="resetPrintStyle" class="h-10 px-4 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100">默认纸张</button>
-          </div>
-
-          <div v-if="selectMode" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            <button
-              v-for="label in labels"
-              :key="'bundle-pick-' + label.id"
-              @click="toggleBundleSelection(label.bundleNo)"
-              :class="selectedBundles.includes(label.bundleNo) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700'"
-              class="border rounded-lg p-3 text-left hover:border-blue-300 transition"
-            >
-              <div class="font-bold">扎 {{ label.bundleNo }}</div>
-              <div class="text-sm mt-1">{{ label.color }} / {{ label.size }}</div>
-              <div class="text-xs text-gray-500 mt-1">{{ label.qty }} 件</div>
-            </button>
-          </div>
-        </div>
-
-        <div v-if="filteredLabels.length === 0" class="text-center py-20 text-gray-500 bg-gray-50 border border-gray-200 rounded-xl">
-          没有可打印的标签，请选择扎号或返回编辑检查数量。
-        </div>
-        <div v-else class="label-preview-container" :style="printStyleVars">
-          <label-card v-for="label in filteredLabels" :key="'preview-'+label.id" :label="label" />
-        </div>
-      </div>
-    </div>
-
-    <!-- Print Details Dialog -->
-    <div v-if="showPrintDialog" class="fixed inset-0 z-40 bg-black/40 flex items-center justify-center px-4 no-print">
-      <div class="w-full max-w-3xl bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-        <div class="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h3 class="text-xl font-bold text-gray-900">打印详情</h3>
-            <p class="text-sm text-gray-500 mt-1">选择打印模式和需要打印的部位</p>
-          </div>
-          <button @click="showPrintDialog = false" class="w-9 h-9 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 text-xl leading-none">x</button>
-        </div>
-
-        <div class="p-6">
-          <div class="grid grid-cols-2 gap-3 mb-6">
-            <button
-              type="button"
-              @click="printMode = 'direct'"
-              :class="printMode === 'direct' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700'"
-              class="h-14 rounded-lg border text-lg font-bold hover:border-blue-300 transition"
-            >
-              默认模式
-            </button>
-            <button
-              type="button"
-              @click="printMode = 'sectional'"
-              :class="printMode === 'sectional' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-700'"
-              class="h-14 rounded-lg border text-lg font-bold hover:border-blue-300 transition"
-            >
-              部位选择模式
-            </button>
-          </div>
-
-          <div v-if="printMode === 'sectional'" class="border border-gray-200 rounded-xl bg-gray-50 p-5">
-            <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-5">
-              <div>
-                <h4 class="text-lg font-bold text-gray-900">部位选择池</h4>
-                <p class="text-sm text-gray-500 mt-1">点击选择，右键从池中移除。打印顺序按选中的部位依次输出。</p>
-              </div>
-              <span class="text-sm text-gray-500">已选 {{ selectedSections.length }} 个</span>
-            </div>
-
-            <div class="flex flex-wrap gap-3 mb-5">
-              <button
-                v-for="section in commonSections"
-                :key="'section-pool-' + section"
-                type="button"
-                @click="toggleSectionSelection(section)"
-                @contextmenu.prevent="removeFromPool('section', section)"
-                :class="selectedSections.includes(section) ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 bg-white text-gray-900'"
-                class="min-w-[74px] h-12 px-5 border rounded-lg text-lg font-bold hover:border-blue-300 shadow-sm transition"
-              >
-                {{ section }}
-              </button>
-            </div>
-
-            <div class="flex gap-3">
-              <input v-model="newSectionInput" @keyup.enter="addToPoolSection" type="text" placeholder="添加新部位..." class="flex-1 h-12 px-4 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
-              <button @click="addToPoolSection" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="px-6 py-5 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-          <button @click="showPrintDialog = false" class="h-11 px-5 rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 font-medium">取消</button>
-          <button @click="confirmPrint" class="h-11 px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium flex items-center gap-2">
-            <icon-printer :size="18" />
-            打印预览
-          </button>
-        </div>
-      </div>
-    </div>
+    <print-dialog
+      v-if="showPrintDialog"
+      v-model:print-mode="printMode"
+      v-model:new-section-input="newSectionInput"
+      :selected-sections="selectedSections"
+      :common-sections="commonSections"
+      @close="showPrintDialog = false"
+      @toggle-section="toggleSectionSelection"
+      @remove-section="(section) => removeFromPool('section', section)"
+      @add-section="addToPoolSection"
+      @confirm="confirmPrint"
+    />
 
     <!-- Main Editor UI -->
     <div v-if="!isPreviewing" class="min-h-screen bg-gray-50">

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "test": "node --test \"tests/**/*.test.ts\"",
+    "check:templates": "node scripts/check-templates.cjs",
     "compile:electron": "tsc -p tsconfig.electron.json",
     "electron:dev": "npm run compile:electron && concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . --remote-debugging-port=9222\"",
     "pack": "npm run build && npm run compile:electron && npx electron-builder --win portable --ia32"
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@types/node": "^22.14.0",
     "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/compiler-dom": "^3.5.44",
     "autoprefixer": "^10.6.2",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
