@@ -126,7 +126,12 @@ dafei/
 │   │   └── pool.ts                # 颜色池/尺码池/部位池读写
 │   ├── components/
 │   │   ├── FormList.tsx           # 首页订单列表、Excel 导出
-│   │   ├── FormEditor.tsx         # 新建/编辑订单、二维表格和标签打印
+│   │   ├── FormEditor.tsx         # 编辑页编排：持有全部状态，组合下列子组件
+│   │   ├── MatrixTable.tsx        # 二维数量表格：拖动排序、键盘导航、行列增删
+│   │   ├── PoolColumn.tsx         # 颜色池/尺码池的通用单栏（左右各渲染一次）
+│   │   ├── LabelCard.tsx          # 单张热敏标签，打印与预览共用
+│   │   ├── PrintPreview.tsx       # 打印预览层：打印输出 + 扎号选择 + 屏幕预览
+│   │   ├── PrintDialog.tsx        # 打印详情对话框：打印模式与部位选择
 │   │   ├── CuttingReport.tsx      # 裁床单报表和报表打印
 │   │   ├── DataManager.tsx        # JSON 数据导入、导出和清空
 │   │   └── Icons.ts               # 图标组件
@@ -139,6 +144,8 @@ dafei/
 │   ├── matrix.test.ts             # 小计与同名合并
 │   ├── labels.test.ts             # 标签张数、页码、部位展开
 │   └── pool-match.test.ts         # 拼音/首字母匹配
+├── scripts/
+│   └── check-templates.cjs        # 编译所有组件的 template 字符串，捕获模板语法错误
 ├── electron/
 │   ├── main.ts                    # Electron 主进程、窗口和用户数据目录
 │   └── preload.js                 # preload 文件
@@ -213,7 +220,11 @@ Excel 文件名由搜索栏内容和日期筛选条件组合生成，并会补�
 
 ### 6.3 订单编辑和二维表格
 
-文件：`src/components/FormEditor.tsx`
+文件：`src/components/FormEditor.tsx`（编排）、`src/components/MatrixTable.tsx`（表格 UI）
+
+> 2026-11 重构后：二维表格的模板与交互已移入 `MatrixTable.tsx`，
+> 颜色池/尺码池两栏移入 `PoolColumn.tsx`。`FormEditor.tsx` 只保留状态与事件编排。
+> 金额、扎号、汇总的计算不在这两个文件里，见 `src/domain/`。
 
 负责：
 
@@ -259,7 +270,12 @@ ${row.id}_${col.id}
 
 ### 6.4 热敏标签打印
 
-热敏标签打印的核心实现有两个文件。
+热敏标签打印涉及四个文件：`LabelCard.tsx`（单张标签）、`PrintPreview.tsx`（预览层）、
+`PrintDialog.tsx`（打印模式选择）、`index.html`（打印 CSS）。
+
+> 2026-11 重构说明：标签结构此前在 `FormEditor.tsx` 里写了两份（打印输出一份、
+> 屏幕预览一份），现已收敛为 `LabelCard.tsx` 一个组件，打印与预览共用。
+> 预览层与对话框也已独立成组件。下面描述的行为与字段未变，只是文件位置变了。
 
 #### 业务和标签数据生成
 
@@ -560,21 +576,37 @@ IndexedDB 和 localStorage 都由 Electron/Chromium 存放在这个 userData 根
 
 ### 已完成（2026-11 重构）
 
-- CDN 依赖本地化：Tailwind 与 SheetJS 均改为本地依赖，产物不再请求外网，断网可用；
-- 金额、扎号、汇总、标签生成从三个组件收敛到 `src/domain/`，消除同一规则多份实现；
+- 新增 `src/domain/` 五个模块，金额、扎号、汇总、标签生成、池读写收敛为唯一实现；
 - 修复历史订单金额被销毁的问题（编辑页显示 0.00、保存即抹掉 `totalAmount`）；
 - 补充单元测试：`tests/` 下 44 个用例，覆盖金额、扎号、汇总、标签、拼音匹配；
 - 清理 `FormEditor.tsx` 中 105 行死代码（含 7 个与 computed 同名的重复 getter）；
 - IndexedDB 连接单例化，导入由逐条事务改为单事务；
-- 删除冗余的 build-electron-main 构建步骤，修正 `electron:dev` 端口，版本号单一化；
-- 清除 `CuttingReport.tsx` 中 summaryMatrix 区域的乱码注释。
+- CDN 依赖本地化：Tailwind 与 SheetJS 均改为本地依赖，产物不再请求外网；
+- 构建链整理：删除冗余的 build-electron-main 步骤，修正 `electron:dev` 端口，版本号单一化；
+- 组件拆分：`FormEditor.tsx` 1343 → 986 行，抽出 `MatrixTable`、`PoolColumn`、
+  `LabelCard`、`PrintPreview`、`PrintDialog`，模板中重复的标签结构与两栏池结构已消除；
+- 新增 `npm run check:templates`，编译校验所有组件的 template 字符串；
+- `tsc --noEmit` 类型错误 3 → 0；
+- 清除 `CuttingReport.tsx` 中全部 5 处 GBK 乱码注释。
 
 ### 仍待处理
 
-- `CuttingReport.tsx` 第 35 行附近仍有 GBK/UTF-8 混合乱码的注释。**不要用脚本批量转码**，会把中文模板正文一起破坏，只能逐处手工替换；
-- `FormEditor.tsx` 仍有约 1150 行，尚未按 UI 区块拆分为独立组件；打印标签模板在其中重复两份（预览一份、打印一份）；
-- 二维表格的键盘导航仍通过 `document.querySelector` 直接操作 DOM，应改为 ref 数组；
-- 类型偏弱：前端 `tsconfig.json` 未开 `strict`，`any` 较多；`DataManager.tsx` 与 `vite.config.ts` 各有一个既存类型错误；
+- 前端 `tsconfig.json` 未开 `strict`，`any` 仍较多。开 strict 会产生一批错误，
+  建议按文件逐个推进，不要一次性打开；
+- `MatrixTable` 的 `rowSmartFill` / `colSmartFill` 以对象 prop 就地修改，未完全规范化。
+  如要彻底受控，需改为独立事件，同时要动父组件的 toggle 方法；
+- 二维表格键盘导航仍通过 `document.querySelector('input[data-row=...]')` 操作 DOM。
+  组件化后若要改 ref，需要 `MatrixTable` 对外暴露定位方法；
 - 颜色池、尺码池、部位池仍未纳入 JSON 备份文件，换机迁移后需重新维护；
-- 打印任务仍依赖 `window.print()`，Electron 主进程未介入，无法记录打印机、处理失败与重试。该项需先在真机记录一次「只打印一部分」时的队列状态再决定方案；
-- 二维表格拖动排序、数据迁移等交互流程尚无自动化测试。
+- 打印任务仍依赖 `window.print()`，Electron 主进程未介入，无法记录打印机、处理失败与重试。
+  该项需先在真机记录一次「只打印一部分」时的队列状态再决定方案；
+- 二维表格拖动排序、数据迁移等交互流程尚无自动化测试（现有测试只覆盖纯函数）；
+- `electron` 仍是 14.x，早已超出官方支持周期。升级上限为 22.x——23 起不再支持 Windows 7，
+  在确认放弃 Win7 用户前不要升级。
+
+### 关于继续拆分的建议
+
+`FormEditor.tsx` 剩余约 986 行，其中模板约 460 行。继续拆 `MoneyPanel` 之类的收益已经为负：
+拆分 `PoolColumn` 时，`FormEditor` 仅从 988 行减到 986 行，被 props/emit 声明抵消。
+剩下的可拆块都需要改动父组件方法签名（如 `updateAmountValue(field, event)`），
+或者给组件多包一层 DOM。**建议到此为止**，除非有明确的可读性目标。
