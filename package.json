@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "test": "node --test \"tests/**/*.test.ts\"",
-    "compile:electron": "tsc -p tsconfig.electron.json && node build-electron-main.cjs",
-    "electron:dev": "npm run compile:electron && concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+    "compile:electron": "tsc -p tsconfig.electron.json",
+    "electron:dev": "npm run compile:electron && concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron . --remote-debugging-port=9222\"",
     "pack": "npm run build && npm run compile:electron && npx electron-builder --win portable --ia32"
   },
   "dependencies": {
@@ -34,7 +34,7 @@
     "appId": "com.daifei.dafei-win7-0317",
     "productName": "dafei-1030",
     "directories": {
-      "output": "release/dafei-1030"
+      "output": "release/${productName}"
     },
     "files": [
       "dist/**/*",
@@ -51,10 +51,10 @@
           ]
         }
       ],
-      "artifactName": "dafei-1030.exe"
+      "artifactName": "${productName}.exe"
     },
     "portable": {
-      "artifactName": "dafei-1030.exe"
+      "artifactName": "${productName}.exe"
     }
   }
 }
