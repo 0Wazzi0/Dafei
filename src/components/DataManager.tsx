@@ -20,7 +20,7 @@ export default defineComponent({
       importing: false,
       clearing: false,
       importFile: null as File | null,
-      message: '' as { type: 'success' | 'error' | 'info', text: string } | null,
+      message: null as { type: 'success' | 'error' | 'info', text: string } | null,
       stats: {
         totalForms: 0,
         lastExport: '',
