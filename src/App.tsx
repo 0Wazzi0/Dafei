@@ -146,7 +146,6 @@ export default defineComponent({
             <span class="text-[19px] font-bold text-[#0F172A]">Dafei 裁床单大师</span>
           </div>
           <div class="flex items-center gap-4">
-            <span class="text-[16px] font-medium text-blue-600">订单列表</span>
             <button @click="openDataManagement" class="h-10 px-4 rounded-[9px] bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-2 text-[16px] font-medium">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>

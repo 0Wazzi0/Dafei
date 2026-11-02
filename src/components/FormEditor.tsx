@@ -150,14 +150,6 @@ export default defineComponent({
     window.removeEventListener('keydown', this.handleKeyDown);
   },
   computed: {
-    // 显示当前编辑状态提示
-    editStatusTip() {
-      if (this.isNewOrder) {
-        return '新订单 - 自动保存草稿中';
-      } else {
-        return '编辑已有订单 - 修改后需手动保存';
-      }
-    },
     // 扎号分配：唯一实现见 domain/bundle.ts，遍历顺序固定为「尺码列外层、颜色行内层」
     bundleMap(): Map<string, number> {
       return buildBundleMap(this.formData.rows, this.formData.cols, this.formData.data);
@@ -801,7 +793,6 @@ export default defineComponent({
               <icon-arrow-left :size="24" />
             </button>
             <h2 class="text-2xl font-bold text-gray-900 truncate">{{ isNewOrder ? '新建裁床单' : '编辑裁床单' }}</h2>
-            <span class="px-3 py-2 rounded bg-gray-100 text-gray-400 text-sm">{{ isNewOrder ? '草稿实时保存中' : '修改后请保存' }}</span>
             <span v-if="!isNewOrder" class="text-sm text-gray-500 whitespace-nowrap">创建时间：{{ formatCreatedDate(formData.createdAt) }}</span>
           </div>
           <div class="flex items-center gap-3">
@@ -828,18 +819,13 @@ export default defineComponent({
 
       <div class="max-w-screen-2xl mx-auto px-6 py-10">
         <div class="bg-white border border-gray-200 rounded-xl shadow-sm px-10 py-10 min-h-[760px]">
-          <div :class="isNewOrder ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'" class="mb-8 px-5 py-4 rounded-lg border flex items-center gap-3 text-lg">
-            <icon-save :size="22" />
-            <span>{{ isNewOrder ? '新订单 - 自动保存草稿中' : '已有订单 - 保存后更新数据库' }}</span>
-          </div>
-
           <div v-if="saveSuccess" class="mb-8 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg text-center text-lg">
             {{ isNewOrder ? '订单已创建！' : '订单已更新！' }}
           </div>
 
           <div class="grid grid-cols-3 gap-12 mb-10">
             <div class="relative">
-              <label class="block text-lg text-gray-600 mb-4">款号 (STYLE NO.)</label>
+              <label class="block text-lg text-gray-600 mb-4">款号</label>
               <input v-model="formData.styleNumber" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none disabled:text-gray-500" placeholder="款号" @focus="handleStyleNumberFocus" @input="handleStyleNumberInput" @blur="hideHistory('styleNumber')" />
               <button type="button" @mousedown.prevent="toggleStyleNumberHistory" class="absolute right-0 bottom-4 text-gray-400 hover:text-gray-700" title="选择历史款号">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
@@ -853,7 +839,7 @@ export default defineComponent({
             </div>
 
             <div class="relative">
-              <label class="block text-lg text-gray-600 mb-4">客户 (CUSTOMER)</label>
+              <label class="block text-lg text-gray-600 mb-4">客户</label>
               <input v-model="formData.customer" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none" placeholder="客户" @focus="handleCustomerFocus" @input="handleCustomerInput" @blur="hideHistory('customer')" />
               <button type="button" @mousedown.prevent="toggleCustomerHistory" class="absolute right-0 bottom-4 text-gray-400 hover:text-gray-700" title="选择历史客户">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
@@ -867,7 +853,7 @@ export default defineComponent({
             </div>
 
             <div>
-              <label class="block text-lg text-gray-600 mb-4">床号 (BED NO.)</label>
+              <label class="block text-lg text-gray-600 mb-4">床号</label>
               <input v-model="formData.bedNumber" type="text" class="w-full h-14 border-0 border-b-2 border-gray-200 bg-transparent px-0 text-3xl font-bold text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-0 outline-none" placeholder="床号" />
             </div>
           </div>

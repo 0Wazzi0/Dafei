@@ -69,27 +69,38 @@ export default defineComponent({
     },
 
     // 统计条：均基于当前筛选结果，避免"筛选后数字还是全量"的误导
-    statOrderCount() {
-      return this.filteredForms.length;
-    },
-
-    statTotalPieces() {
-      return this.filteredForms.reduce((sum, form) => sum + this.calculateTotal(form.data || {}), 0);
-    },
-
-    statTotalAmount() {
-      return this.filteredForms.reduce((sum, form) => sum + this.calculateOrderAmount(form), 0);
-    },
-
-    statMonthCount() {
+    // 本月口径与列表「下单日期」列一致，取订单创建时间（createdAt）的自然月
+    statMonthForms() {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth();
       return this.filteredForms.filter(form => {
         const d = new Date(form.createdAt || 0);
         return d.getFullYear() === year && d.getMonth() === month;
-      }).length;
+      });
+    },
+
+    statMonthCount() {
+      return this.statMonthForms.length;
+    },
+
+    statMonthPieces() {
+      return this.statMonthForms.reduce((sum, form) => sum + this.calculateTotal(form.data || {}), 0);
+    },
+
+    statMonthAmount() {
+      return this.statMonthForms.reduce((sum, form) => sum + this.calculateOrderAmount(form), 0);
+    },
+
+    statTotalAmount() {
+      return this.filteredForms.reduce((sum, form) => sum + this.calculateOrderAmount(form), 0);
     }
+  },
+  watch: {
+    // 筛选条件一变就回到第 1 页，否则会停留在已不存在的页码上显示空表
+    searchQuery() { this.currentPage = 1; },
+    startDate() { this.currentPage = 1; },
+    endDate() { this.currentPage = 1; }
   },
   mounted() {
     this.loadForms();
@@ -107,9 +118,15 @@ export default defineComponent({
       }
     },
 
+    // 清空搜索与日期筛选，回到全量视图
+    clearFilters() {
+      this.searchQuery = '';
+      this.startDate = '';
+      this.endDate = '';
+    },
+
     // 翻页方法
-    goToPage(page: number) {
-      if (page < 1 || page > this.totalPages) return;
+    goToPage(page: number) {      if (page < 1 || page > this.totalPages) return;
       this.currentPage = page;
     },
 
@@ -255,11 +272,6 @@ export default defineComponent({
         <div class="shrink-0 flex items-center justify-between gap-6">
           <div class="min-w-0">
             <h1 class="text-[32px] leading-[1.15] font-bold text-[#0F172A]">青蓝服装裁剪工作室</h1>
-            <p class="text-[15px] text-[#64748B] mt-1.5">
-              共 {{ forms.length }} 张裁床单
-              <span v-if="isFiltered" class="text-blue-600">· 已筛选出 {{ filteredForms.length }} 张</span>
-              <span v-else>· 订单管理系统 v2.0</span>
-            </p>
           </div>
           <button
             @click="handleCreate"
@@ -274,20 +286,20 @@ export default defineComponent({
         <!-- 统计条 -->
         <div class="shrink-0 bg-white rounded-xl border border-[#E6EAF0] px-8 py-4 grid grid-cols-4 gap-6">
           <div>
-            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatNumber(statOrderCount) }}</div>
-            <div class="text-[14px] text-[#64748B] mt-0.5">订单总数</div>
+            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatNumber(statMonthCount) }}</div>
+            <div class="text-[14px] text-[#64748B] mt-0.5">本月订单</div>
           </div>
           <div>
-            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatNumber(statTotalPieces) }}</div>
-            <div class="text-[14px] text-[#64748B] mt-0.5">总件数</div>
+            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatNumber(statMonthPieces) }}</div>
+            <div class="text-[14px] text-[#64748B] mt-0.5">本月件数</div>
           </div>
           <div>
+            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatAmount(statMonthAmount) }}</div>
+            <div class="text-[14px] text-[#64748B] mt-0.5">本月金额</div>
+          </div>
+          <div class="pl-7 border-l border-[#EEF2F6]">
             <div class="text-[28px] leading-tight font-bold text-blue-700">{{ formatAmount(statTotalAmount) }}</div>
             <div class="text-[14px] text-[#64748B] mt-0.5">总金额</div>
-          </div>
-          <div>
-            <div class="text-[28px] leading-tight font-bold text-[#0F172A]">{{ formatNumber(statMonthCount) }}</div>
-            <div class="text-[14px] text-[#64748B] mt-0.5">本月新增</div>
           </div>
         </div>
 
@@ -328,6 +340,15 @@ export default defineComponent({
               class="w-[122px] bg-transparent text-[16px] text-[#334155] outline-none"
             />
           </label>
+          <button
+            v-if="isFiltered"
+            @click="clearFilters"
+            class="shrink-0 h-12 px-4 rounded-[10px] text-[16px] font-medium text-[#64748B]
+                   hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
+            title="清空搜索与日期筛选"
+          >
+            清空筛选
+          </button>
           <button
             @click="exportToExcel"
             class="shrink-0 h-12 px-6 rounded-[10px] bg-emerald-600 hover:bg-emerald-700 text-white
@@ -373,7 +394,7 @@ export default defineComponent({
               >
                 <div class="text-[14px] font-bold text-[#94A3B8]">序号</div>
                 <div class="text-[14px] font-bold text-[#94A3B8]">款号</div>
-                <div class="text-[14px] font-bold text-[#94A3B8]">床次</div>
+                <div class="text-[14px] font-bold text-[#94A3B8]">床号</div>
                 <div class="text-[14px] font-bold text-[#94A3B8]">客户</div>
                 <div class="text-[14px] font-bold text-[#94A3B8]">数量</div>
                 <div class="text-[14px] font-bold text-[#94A3B8] text-right pr-3">金额</div>
