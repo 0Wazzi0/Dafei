@@ -1,6 +1,9 @@
 ﻿
 import { defineComponent } from 'vue';
-import { CuttingForm, MatrixHeader } from '../types.ts';
+import { CuttingForm } from '../types.ts';
+import { orderAmount, orderPieces } from '../domain/money.ts';
+import { buildBundleList, buildBundleMap } from '../domain/bundle.ts';
+import { buildColorTotals, buildSizeTotals, buildSummaryMatrix } from '../domain/matrix.ts';
 import { IconArrowLeft, IconPrinter } from './Icons.ts';
 
 export default defineComponent({
@@ -13,122 +16,34 @@ export default defineComponent({
   },
   computed: {
     totalPieces(): number {
-      return (Object.values(this.form.data) as number[]).reduce((a: number, b: number) => a + (Number(b) || 0), 0);
+      return orderPieces(this.form);
     },
     
-    // 总金额 = 单价 × 订单总数 + 其他费用
+    // 总金额：唯一实现见 domain/money.ts
     totalAmount(): number {
-      const amountPerPiece = Number(this.form.amountPerPiece);
-      const additionalFee = Number(this.form.additionalFee) || 0;
-      if (Number.isFinite(amountPerPiece)) {
-        return amountPerPiece * this.totalPieces + additionalFee;
-      }
-      if (this.form.totalAmount !== undefined) {
-        return Number(this.form.totalAmount) || 0;
-      }
-      // 单价未填但填了其他费用时，总额至少应包含其他费用
-      return additionalFee;
+      return orderAmount(this.form, this.totalPieces);
     },
     
     
-    summaryMatrix(): { colorNames: string[], sizeNames: string[], matrix: Record<string, Record<string, number>> } {
-      // 鎻愬彇鎵€鏈変笉閲嶅鐨勫悕绉帮紝骞惰繘琛屽幓绌烘牸澶勭悊浠ュ寮哄尮閰嶇ǔ瀹氭€?      // Use Array.from instead of spread operator for better type inference with Set in some TS environments
-      // Use type assertion and filter(n => !!n) to ensure a clean string array and resolve 'unknown[]' assignment error.
-      const colorNames: string[] = Array.from(new Set(this.form.rows.map((r: MatrixHeader) => r.name.trim()))).filter((n: any) => n !== '') as string[];
-      const sizeNames: string[] = Array.from(new Set(this.form.cols.map((c: MatrixHeader) => c.name.trim()))).filter((n: any) => n !== '') as string[];
-      
-      const matrix: Record<string, Record<string, number>> = {};
-      colorNames.forEach((c: string) => {
-        matrix[c] = {};
-        sizeNames.forEach((s: string) => {
-          matrix[c][s] = 0;
-        });
-      });
-
-      // 閬嶅巻鎵€鏈夊師濮嬫暟鎹崟鍏冩牸
-      this.form.rows.forEach(row => {
-        const rName = row.name.trim();
-        if (!matrix[rName]) return;
-
-        this.form.cols.forEach(col => {
-          const sName = col.name.trim();
-          if (!matrix[rName][sName]) matrix[rName][sName] = 0;
-
-          const val = Number(this.form.data[`${row.id}_${col.id}`]) || 0;
-          if (val > 0) {
-            matrix[rName][sName] += val;
-          }
-        });
-      });
-
-      return { colorNames, sizeNames, matrix };
+    // 同名合并汇总：唯一实现见 domain/matrix.ts
+    summaryMatrix() {
+      return buildSummaryMatrix(this.form.rows, this.form.cols, this.form.data);
     },
-    // 璁＄畻姣忎釜颜色鐨勬€绘暟
+    // 颜色小计：唯一实现见 domain/matrix.ts
     colorTotals(): Record<string, number> {
-      const totals: Record<string, number> = {};
-      
-      this.form.rows.forEach((row: MatrixHeader) => {
-        totals[row.id] = 0;
-        
-        this.form.cols.forEach((col: MatrixHeader) => {
-          const key = `${row.id}_${col.id}`;
-          const qty = this.form.data[key] || 0;
-          totals[row.id] += qty;
-        });
-      });
-      
-      return totals;
+      return buildColorTotals(this.form.rows, this.form.cols, this.form.data);
     },
-    // 璁＄畻姣忎釜尺码鐨勬€绘暟
+    // 尺码小计：唯一实现见 domain/matrix.ts
     sizeTotals(): Record<string, number> {
-      const totals: Record<string, number> = {};
-      
-      this.form.cols.forEach((col: MatrixHeader) => {
-        totals[col.id] = 0;
-        
-        this.form.rows.forEach((row: MatrixHeader) => {
-          const key = `${row.id}_${col.id}`;
-          const qty = this.form.data[key] || 0;
-          totals[col.id] += qty;
-        });
-      });
-      
-      return totals;
+      return buildSizeTotals(this.form.rows, this.form.cols, this.form.data);
     },
+    // 扎号分配：唯一实现见 domain/bundle.ts，顺序固定「尺码列外层、颜色行内层」
     bundleMap(): Map<string, number> {
-      const map = new Map<string, number>();
-      let counter = 1;
-      const rows = this.form.rows || [];
-      const cols = this.form.cols || [];
-      // 杩欓噷鐨勬墡鍙烽€昏緫淇濇寔鍏ㄥ眬鍞竴鑷
-      cols.forEach((col: MatrixHeader) => {
-        rows.forEach((row: MatrixHeader) => {
-          const key = `${row.id}_${col.id}`;
-          const qty = this.form.data[key] || 0;
-          if (qty > 0) map.set(key, counter++);
-        });
-      });
-      return map;
+      return buildBundleMap(this.form.rows, this.form.cols, this.form.data);
     },
+    // 扎明细：唯一实现见 domain/bundle.ts
     bundleList() {
-      const list: any[] = [];
-      const rows = this.form.rows || [];
-      const cols = this.form.cols || [];
-      cols.forEach((col: MatrixHeader) => {
-        rows.forEach((row: MatrixHeader) => {
-          const key = `${row.id}_${col.id}`;
-          const qty = this.form.data[key] || 0;
-          if (qty > 0) {
-            list.push({
-              no: this.bundleMap.get(key),
-              color: row.name,
-              size: col.name,
-              qty: qty
-            });
-          }
-        });
-      });
-      return list.sort((a, b) => (a.no || 0) - (b.no || 0));
+      return buildBundleList(this.form.rows, this.form.cols, this.form.data);
     }
   },
   methods: {

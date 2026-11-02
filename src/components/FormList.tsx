@@ -1,5 +1,6 @@
 import { defineComponent } from 'vue';
 import { getFormsFromDB, deleteFormFromDB } from '../services/db.ts';
+import { orderAmount, sumPieces } from '../domain/money.ts';
 import { IconPlus, IconEdit, IconFileText, IconLoader2, IconTrash2, IconSearch, IconDownload, IconClipboard } from './Icons.ts';
 
 // 声明全局 XLSX 变量，避免 TS 报错
@@ -158,22 +159,12 @@ export default defineComponent({
     },
 
     calculateTotal(data: any) {
-      return Object.values(data).reduce((a: number, b: any) => a + (Number(b) || 0), 0);
+      return sumPieces(data);
     },
 
-    // 计算订单金额
+    // 计算订单金额：唯一实现见 domain/money.ts
     calculateOrderAmount(form: any) {
-      const totalQty = this.calculateTotal(form.data);
-      const additionalFee = Number(form.additionalFee) || 0;
-      const amountPerPiece = Number(form.amountPerPiece);
-      if (Number.isFinite(amountPerPiece)) {
-        return amountPerPiece * totalQty + additionalFee;
-      }
-      if (form.totalAmount !== undefined) {
-        return Number(form.totalAmount) || 0;
-      }
-      // 单价未填但填了其他费用时，总额至少应包含其他费用
-      return additionalFee;
+      return orderAmount(form, this.calculateTotal(form.data));
     },
 
     // 千分位，避免四位数以上要数零

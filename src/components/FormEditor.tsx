@@ -7,34 +7,21 @@ import {
   IconGripVertical, IconGripHorizontal, IconCopy, IconTrash2, IconClipboard,
   IconDownload, IconUpload, IconDatabase, IconLoader2
 } from './Icons.ts';
+import {
+  DEFAULT_COLORS,
+  DEFAULT_SIZES,
+  POOL_KEYS,
+  getStoredPool,
+  getStoredSectionPool,
+  saveStoredPool
+} from '../domain/pool.ts';
+import { orderAmount, orderPieces, totalAmountOnSave } from '../domain/money.ts';
+import { buildBundleMap, countBundles } from '../domain/bundle.ts';
+import { buildColorTotals, buildSizeTotals } from '../domain/matrix.ts';
+import { buildLabels, filterLabelsByBundles } from '../domain/labels.ts';
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
-const DEFAULT_COLORS = ['红', '绿', '蓝', '黑', '白', '黄', '藏青', '灰'];
-const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
-const DEFAULT_SECTIONS = ['袖口', '前幅', '后幅'];
-
-const getStoredPool = (key: string, defaults: string[]) => {
-  const stored = localStorage.getItem(key);
-  return stored ? JSON.parse(stored) : [...defaults];
-};
-
-const getStoredSectionPool = () => {
-  const stored = localStorage.getItem('pool_sections');
-  if (!stored) return [...DEFAULT_SECTIONS];
-
-  const pool = JSON.parse(stored);
-  if (localStorage.getItem('pool_sections_v2') === '1') return pool;
-
-  const migratedPool = [...pool, ...DEFAULT_SECTIONS.filter((item) => !pool.includes(item))];
-  localStorage.setItem('pool_sections', JSON.stringify(migratedPool));
-  localStorage.setItem('pool_sections_v2', '1');
-  return migratedPool;
-};
-
-const saveStoredPool = (key: string, pool: string[]) => {
-  localStorage.setItem(key, JSON.stringify(pool));
-};
 
 export default defineComponent({
   name: 'FormEditor',
@@ -77,8 +64,8 @@ export default defineComponent({
       printMode: 'direct' as 'direct' | 'sectional',
       dragItem: null as number | null,
       dragOverItem: null as number | null,
-      commonColors: getStoredPool('pool_colors', DEFAULT_COLORS) as string[],
-      commonSizes: getStoredPool('pool_sizes', DEFAULT_SIZES) as string[],
+      commonColors: getStoredPool(POOL_KEYS.colors, DEFAULT_COLORS) as string[],
+      commonSizes: getStoredPool(POOL_KEYS.sizes, DEFAULT_SIZES) as string[],
       commonSections: getStoredSectionPool() as string[],
       selectedSections: [] as string[],
       newColorInput: '',
@@ -174,104 +161,35 @@ export default defineComponent({
         marginTop: `${this.printOffsetY}px`
       };
     },
+    // 扎号分配：唯一实现见 domain/bundle.ts，遍历顺序固定为「尺码列外层、颜色行内层」
     bundleMap(): Map<string, number> {
-      const map = new Map<string, number>();
-      let counter = 1;
-      const rows = this.formData.rows || [];
-      const cols = this.formData.cols || [];
-      
-      cols.forEach((col: MatrixHeader) => {
-        rows.forEach((row: MatrixHeader) => {
-          const key = `${row.id}_${col.id}`;
-          const qty = this.formData.data[key] || 0;
-          if (qty > 0) {
-            map.set(key, counter++);
-          }
-        });
-      });
-      return map;
+      return buildBundleMap(this.formData.rows, this.formData.cols, this.formData.data);
     },
+    // 标签数据：唯一实现见 domain/labels.ts
     labels() {
-      const list: any[] = [];
-      const rows = this.formData.rows || [];
-      const cols = this.formData.cols || [];
-      
-      const sectionsToPrint = this.printMode === 'sectional' && this.selectedSections.length > 0 
-        ? this.selectedSections 
-        : [''];
-
-      sectionsToPrint.forEach((sectionName) => {
-        cols.forEach((col: MatrixHeader) => {
-          rows.forEach((row: MatrixHeader) => {
-            const key = `${row.id}_${col.id}`;
-            const qty = this.formData.data[key] || 0;
-            if (qty > 0) {
-              const bundleNo = this.bundleMap.get(key);
-              list.push({
-                id: `${key}_${sectionName}`,
-                styleNumber: this.formData.styleNumber || '-',
-                customer: this.formData.customer || '-',
-                bedNumber: this.formData.bedNumber || '-',
-                color: row.name,
-                size: col.name,
-                bundleNo: bundleNo,
-                qty: qty,
-                section: sectionName
-              });
-            }
-          });
-        });
+      return buildLabels(this.formData, {
+        printMode: this.printMode,
+        selectedSections: this.selectedSections
       });
-      
-      const totalCount = list.length;
-      return list.map((item, index) => ({ 
-        ...item, 
-        currentPage: index + 1, 
-        totalPage: totalCount 
-      }));
     },
-    totalBundles(): number { return this.bundleMap.size; },
+    totalBundles(): number {
+      return countBundles(this.formData.rows, this.formData.cols, this.formData.data);
+    },
     totalPieces(): number {
-      const values = Object.values(this.formData.data) as number[];
-      return values.reduce((a: number, b: number) => a + (Number(b) || 0), 0);
+      return orderPieces(this.formData);
     },
-    // 计算每个颜色的总数
+    // 颜色小计：唯一实现见 domain/matrix.ts
     colorTotals(): Record<string, number> {
-      const totals: Record<string, number> = {};
-      
-      this.formData.rows.forEach((row: MatrixHeader) => {
-        totals[row.id] = 0;
-        
-        this.formData.cols.forEach((col: MatrixHeader) => {
-          const key = `${row.id}_${col.id}`;
-          const qty = this.formData.data[key] || 0;
-          totals[row.id] += qty;
-        });
-      });
-      
-      return totals;
+      return buildColorTotals(this.formData.rows, this.formData.cols, this.formData.data);
     },
-    // 计算每个尺码的总数
+    // 尺码小计：唯一实现见 domain/matrix.ts
     sizeTotals(): Record<string, number> {
-      const totals: Record<string, number> = {};
-      
-      this.formData.cols.forEach((col: MatrixHeader) => {
-        totals[col.id] = 0;
-        
-        this.formData.rows.forEach((row: MatrixHeader) => {
-          const key = `${row.id}_${col.id}`;
-          const qty = this.formData.data[key] || 0;
-          totals[col.id] += qty;
-        });
-      });
-      
-      return totals;
+      return buildSizeTotals(this.formData.rows, this.formData.cols, this.formData.data);
     },
-    // 计算总金额 = 单价 × 订单数量 + 其他费用
+    // 总金额：唯一实现见 domain/money.ts。无有效单价时回退 totalAmount，
+    // 修复历史订单在编辑页显示 0.00 的问题。
     calculatedTotalAmount(): number {
-      const amountPerPiece = Number(this.formData.amountPerPiece) || 0;
-      const additionalFee = Number(this.formData.additionalFee) || 0;
-      return amountPerPiece * this.totalPieces + additionalFee;
+      return orderAmount(this.formData, this.totalPieces);
     },
     isAllRowFillEnabled(): boolean {
       return this.formData.rows.length > 0 && this.formData.rows.every((r: MatrixHeader) => this.rowSmartFill[r.id]);
@@ -279,12 +197,9 @@ export default defineComponent({
     isAllColFillEnabled(): boolean {
       return this.formData.cols.length > 0 && this.formData.cols.every((c: MatrixHeader) => this.colSmartFill[c.id]);
     },
-    // 过滤后的标签（根据选择模式）
+    // 过滤后的标签（根据选择模式）：唯一实现见 domain/labels.ts
     filteredLabels() {
-      if (!this.selectMode || this.selectedBundles.length === 0) {
-        return this.labels;
-      }
-      return this.labels.filter(label => this.selectedBundles.includes(label.bundleNo));
+      return filterLabelsByBundles(this.labels, this.selectMode, this.selectedBundles);
     },
     filteredCustomerHistory() {
       const query = this.formData.customer.trim().toLowerCase();
@@ -365,7 +280,7 @@ export default defineComponent({
       const name = this.newColorInput.trim();
       if (name && !this.commonColors.includes(name)) {
         this.commonColors.push(name);
-        saveStoredPool('pool_colors', this.commonColors);
+        saveStoredPool(POOL_KEYS.colors, this.commonColors);
       }
       this.newColorInput = '';
     },
@@ -373,7 +288,7 @@ export default defineComponent({
       const name = this.newSizeInput.trim();
       if (name && !this.commonSizes.includes(name)) {
         this.commonSizes.push(name);
-        saveStoredPool('pool_sizes', this.commonSizes);
+        saveStoredPool(POOL_KEYS.sizes, this.commonSizes);
       }
       this.newSizeInput = '';
     },
@@ -381,7 +296,7 @@ export default defineComponent({
       const name = this.newSectionInput.trim();
       if (name && !this.commonSections.includes(name)) {
         this.commonSections.push(name);
-        saveStoredPool('pool_sections', this.commonSections);
+        saveStoredPool(POOL_KEYS.sections, this.commonSections);
       }
       if (name && !this.selectedSections.includes(name)) {
         this.selectedSections.push(name);
@@ -391,13 +306,13 @@ export default defineComponent({
     removeFromPool(type: 'color' | 'size' | 'section', name: string) {
       if (type === 'color') {
         this.commonColors = this.commonColors.filter((c: string) => c !== name);
-        saveStoredPool('pool_colors', this.commonColors);
+        saveStoredPool(POOL_KEYS.colors, this.commonColors);
       } else if (type === 'size') {
         this.commonSizes = this.commonSizes.filter((s: string) => s !== name);
-        saveStoredPool('pool_sizes', this.commonSizes);
+        saveStoredPool(POOL_KEYS.sizes, this.commonSizes);
       } else {
         this.commonSections = this.commonSections.filter((s: string) => s !== name);
-        saveStoredPool('pool_sections', this.commonSections);
+        saveStoredPool(POOL_KEYS.sections, this.commonSections);
         this.selectedSections = this.selectedSections.filter((s) => s !== name);
       }
     },
@@ -807,7 +722,9 @@ export default defineComponent({
       this.saving = true;
       try {
         this.formData.additionalFee = Number(this.formData.additionalFee) || 0;
-        this.formData.totalAmount = undefined;
+        // 无有效单价时保留历史 totalAmount。重构前这里无条件置 undefined，
+        // 导致打开一张旧订单点一次保存，该单的总金额就永久丢失。
+        this.formData.totalAmount = totalAmountOnSave(this.formData);
 
         const savedForm = JSON.parse(JSON.stringify({
           ...this.formData,
@@ -842,7 +759,7 @@ export default defineComponent({
           createdAt: now,
           updatedAt: now,
           additionalFee: Number(this.formData.additionalFee) || 0,
-          totalAmount: undefined
+          totalAmount: totalAmountOnSave(this.formData)
         }));
 
         await saveFormToDB(savedForm);
