@@ -23,6 +23,7 @@ import LabelCard from './LabelCard.tsx';
 import PrintPreview from './PrintPreview.tsx';
 import PrintDialog from './PrintDialog.tsx';
 import MatrixTable from './MatrixTable.tsx';
+import PoolColumn from './PoolColumn.tsx';
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -34,6 +35,7 @@ export default defineComponent({
     PrintPreview,
     PrintDialog,
     MatrixTable,
+    PoolColumn,
     IconPlus, IconSave, IconPrinter, IconArrowLeft, 
     IconGripVertical, IconGripHorizontal, IconCopy, IconTrash2, IconClipboard,
     IconDownload, IconUpload, IconDatabase,
@@ -906,51 +908,47 @@ export default defineComponent({
 
           <div class="border border-gray-200 rounded-xl bg-gray-50 px-8 py-7 mb-10">
             <div class="grid grid-cols-2 gap-10 divide-x divide-gray-200">
-              <div class="pr-10">
-                <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
-                  <h3 class="text-xl font-bold text-gray-900">
-                    颜色池
-                    <span class="ml-2 text-sm font-normal text-gray-400">{{ poolColorMatches.length }} 个</span>
-                  </h3>
-                  <span class="text-sm text-gray-400">右键移除</span>
-                </div>
-                <div class="flex flex-wrap items-center gap-3 mb-4 min-h-[108px] content-start">
-                  <button v-for="color in poolColorVisible" :key="'color-pool-' + color" @click="addRow(color)" @contextmenu.prevent="removeFromPool('color', color)" class="min-w-[62px] h-12 px-5 bg-white border border-gray-200 rounded-lg text-xl text-gray-900 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition">{{ color }}</button>
-                  <button v-if="poolColorHiddenCount > 0" @click="poolColorsExpanded = true" class="h-12 px-4 rounded-lg border border-dashed border-gray-300 text-base text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">展开 +{{ poolColorHiddenCount }}</button>
-                  <button v-else-if="poolColorsExpanded && poolColorMatches.length > poolCollapsedLimit && !newColorInput.trim()" @click="poolColorsExpanded = false" class="h-12 px-4 rounded-lg border border-dashed border-gray-300 text-base text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">收起</button>
-                  <span v-if="newColorInput.trim() && poolColorMatches.length === 0" class="text-base text-gray-400">没有匹配的颜色，按 Enter 可直接新增</span>
-                </div>
-                <div class="flex gap-3">
-                  <div class="relative flex-1">
-                    <input v-model="newColorInput" @keyup.enter="addRow(newColorInput); addToPoolColor()" type="text" :title="poolMatchHint" placeholder="搜索或新增颜色（文字 / 全拼 / 首字母）" class="w-full h-12 pl-4 pr-11 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
-                    <button v-if="newColorInput" @click="newColorInput = ''" title="清空" class="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-600">×</button>
-                  </div>
-                  <button @click="addRow(newColorInput); addToPoolColor()" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
-                </div>
-              </div>
+              <pool-column
+                side="left"
+                title="颜色池"
+                :count="poolColorMatches.length"
+                :items="poolColorVisible"
+                :hidden-count="poolColorHiddenCount"
+                :expanded="poolColorsExpanded"
+                :collapsed-limit="poolCollapsedLimit"
+                :input="newColorInput"
+                :hint="poolMatchHint"
+                placeholder="搜索或新增颜色（文字 / 全拼 / 首字母）"
+                empty-hint="没有匹配的颜色，按 Enter 可直接新增"
+                @pick="addRow"
+                @remove="(value) => removeFromPool('color', value)"
+                @expand="poolColorsExpanded = true"
+                @collapse="poolColorsExpanded = false"
+                @update:input="newColorInput = $event"
+                @submit="addRow(newColorInput); addToPoolColor()"
+                @clear="newColorInput = ''"
+              />
 
-              <div class="pl-10">
-                <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-4">
-                  <h3 class="text-xl font-bold text-gray-900">
-                    尺码池
-                    <span class="ml-2 text-sm font-normal text-gray-400">{{ poolSizeMatches.length }} 个</span>
-                  </h3>
-                  <span class="text-sm text-gray-400">右键移除</span>
-                </div>
-                <div class="flex flex-wrap items-center gap-3 mb-4 min-h-[108px] content-start">
-                  <button v-for="size in poolSizeVisible" :key="'size-pool-' + size" @click="addCol(size)" @contextmenu.prevent="removeFromPool('size', size)" class="min-w-[62px] h-12 px-5 bg-white border border-gray-200 rounded-lg text-xl text-gray-900 hover:border-blue-300 hover:bg-blue-50 shadow-sm transition">{{ size }}</button>
-                  <button v-if="poolSizeHiddenCount > 0" @click="poolSizesExpanded = true" class="h-12 px-4 rounded-lg border border-dashed border-gray-300 text-base text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">展开 +{{ poolSizeHiddenCount }}</button>
-                  <button v-else-if="poolSizesExpanded && poolSizeMatches.length > poolCollapsedLimit && !newSizeInput.trim()" @click="poolSizesExpanded = false" class="h-12 px-4 rounded-lg border border-dashed border-gray-300 text-base text-gray-500 hover:border-blue-400 hover:text-blue-600 transition">收起</button>
-                  <span v-if="newSizeInput.trim() && poolSizeMatches.length === 0" class="text-base text-gray-400">没有匹配的尺码，按 Enter 可直接新增</span>
-                </div>
-                <div class="flex gap-3">
-                  <div class="relative flex-1">
-                    <input v-model="newSizeInput" @keyup.enter="addCol(newSizeInput); addToPoolSize()" type="text" :title="poolMatchHint" placeholder="搜索或新增尺码（文字 / 全拼 / 首字母）" class="w-full h-12 pl-4 pr-11 border border-gray-200 rounded-lg bg-white text-lg focus:border-blue-500 focus:ring-0 outline-none" />
-                    <button v-if="newSizeInput" @click="newSizeInput = ''" title="清空" class="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-600">×</button>
-                  </div>
-                  <button @click="addCol(newSizeInput); addToPoolSize()" class="h-12 px-6 rounded-lg bg-blue-600 text-white text-lg hover:bg-blue-700 transition">添加</button>
-                </div>
-              </div>
+              <pool-column
+                side="right"
+                title="尺码池"
+                :count="poolSizeMatches.length"
+                :items="poolSizeVisible"
+                :hidden-count="poolSizeHiddenCount"
+                :expanded="poolSizesExpanded"
+                :collapsed-limit="poolCollapsedLimit"
+                :input="newSizeInput"
+                :hint="poolMatchHint"
+                placeholder="搜索或新增尺码（文字 / 全拼 / 首字母）"
+                empty-hint="没有匹配的尺码，按 Enter 可直接新增"
+                @pick="addCol"
+                @remove="(value) => removeFromPool('size', value)"
+                @expand="poolSizesExpanded = true"
+                @collapse="poolSizesExpanded = false"
+                @update:input="newSizeInput = $event"
+                @submit="addCol(newSizeInput); addToPoolSize()"
+                @clear="newSizeInput = ''"
+              />
             </div>
           </div>
 
