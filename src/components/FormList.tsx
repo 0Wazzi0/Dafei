@@ -1,10 +1,8 @@
 import { defineComponent } from 'vue';
+import * as XLSX from 'xlsx';
 import { getFormsFromDB, deleteFormFromDB } from '../services/db.ts';
 import { orderAmount, sumPieces } from '../domain/money.ts';
 import { IconPlus, IconEdit, IconFileText, IconLoader2, IconTrash2, IconSearch, IconDownload, IconClipboard } from './Icons.ts';
-
-// 声明全局 XLSX 变量，避免 TS 报错
-declare const XLSX: any;
 
 export default defineComponent({
   name: 'FormList',

@@ -1,0 +1,13 @@
+/**
+ * 全站样式入口。
+ *
+ * 重构前 Tailwind 通过 cdn.tailwindcss.com 在运行时生成，断网则整站失去样式。
+ * 现改为构建期生成静态 CSS，随应用一起打包。
+ *
+ * 打印相关的样式（.print-label / @media print / @page）仍在 index.html 里，
+ * 因为那部分依赖大量手写 CSS 且已针对 40mm × 80mm 纸张反复校准过，
+ * 迁移到本文件会改变样式加载顺序，风险大于收益。
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
