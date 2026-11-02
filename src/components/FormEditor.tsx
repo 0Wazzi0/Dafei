@@ -19,6 +19,7 @@ import { orderAmount, orderPieces, totalAmountOnSave } from '../domain/money.ts'
 import { buildBundleMap, countBundles } from '../domain/bundle.ts';
 import { buildColorTotals, buildSizeTotals } from '../domain/matrix.ts';
 import { buildLabels, filterLabelsByBundles } from '../domain/labels.ts';
+import LabelCard from './LabelCard.tsx';
 
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -26,6 +27,7 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 export default defineComponent({
   name: 'FormEditor',
   components: {
+    LabelCard,
     IconPlus, IconSave, IconPrinter, IconArrowLeft, 
     IconGripVertical, IconGripHorizontal, IconCopy, IconTrash2, IconClipboard,
     IconDownload, IconUpload, IconDatabase,
@@ -756,24 +758,7 @@ export default defineComponent({
     <div v-if="isPreviewing" class="print-preview-shell fixed inset-0 bg-white z-50 overflow-auto p-6 print:bg-transparent print:p-0 print:z-0">
       <!-- Actual Thermal Label Print Output -->
       <div class="thermal-print-root hidden print:block" :style="printStyleVars">
-        <div v-for="label in filteredLabels" :key="'print-'+label.id" class="print-label">
-           <div class="label-content">
-              <div class="label-header">青蓝服装裁剪工作室</div>
-              <div class="label-row"><b>款号</b><span>{{ label.styleNumber }}</span></div>
-              <div class="label-row"><b>床号</b><span>{{ label.bedNumber }}</span></div>
-              <div class="label-row"><b>颜色</b><span>{{ label.color }}</span></div>
-              <div class="label-row"><b>尺码</b><span>{{ label.size }}</span></div>
-              <div class="label-row"><b>扎号</b><span>{{ label.bundleNo }}</span></div>
-              <div class="label-row"><b>件数</b><span>{{ label.qty }}</span></div>
-              <div v-if="label.section" class="flex mt-auto text-[12px] font-black py-0.5 justify-start">
-                 {{ label.section }}
-              </div>
-              <div class="label-footer">
-                <span>第 {{ label.currentPage }} 张</span>
-                <span>共 {{ label.totalPage }} 张</span>
-              </div>
-           </div>
-        </div>
+        <label-card v-for="label in filteredLabels" :key="'print-'+label.id" :label="label" />
       </div>
 
       <div class="no-print max-w-6xl mx-auto">
@@ -820,24 +805,7 @@ export default defineComponent({
           没有可打印的标签，请选择扎号或返回编辑检查数量。
         </div>
         <div v-else class="label-preview-container" :style="printStyleVars">
-          <div v-for="label in filteredLabels" :key="'preview-'+label.id" class="print-label">
-            <div class="label-content">
-              <div class="label-header">青蓝服装裁剪工作室</div>
-              <div class="label-row"><b>款号</b><span>{{ label.styleNumber }}</span></div>
-              <div class="label-row"><b>床号</b><span>{{ label.bedNumber }}</span></div>
-              <div class="label-row"><b>颜色</b><span>{{ label.color }}</span></div>
-              <div class="label-row"><b>尺码</b><span>{{ label.size }}</span></div>
-              <div class="label-row"><b>扎号</b><span>{{ label.bundleNo }}</span></div>
-              <div class="label-row"><b>件数</b><span>{{ label.qty }}</span></div>
-              <div v-if="label.section" class="flex mt-auto text-[12px] font-black py-0.5 justify-start">
-                {{ label.section }}
-              </div>
-              <div class="label-footer">
-                <span>第 {{ label.currentPage }} 张</span>
-                <span>共 {{ label.totalPage }} 张</span>
-              </div>
-            </div>
-          </div>
+          <label-card v-for="label in filteredLabels" :key="'preview-'+label.id" :label="label" />
         </div>
       </div>
     </div>
