@@ -99,10 +99,6 @@ export default defineComponent({
       printGap: 10,             // 标签间距 (px)
       paperWidth: 40,           // 纸张宽度 (mm)
       paperHeight: 80,          // 纸张高度 (mm)
-      // 打印预览相关
-      printScale: 100,
-      printOffsetX: 0,
-      printOffsetY: 0,
       showPrintSettings: false,
       // 选择性打印功能
       selectMode: false,
@@ -151,15 +147,6 @@ export default defineComponent({
       } else {
         return '编辑已有订单 - 修改后需手动保存';
       }
-    },
-    // 打印预览样式
-    previewStyle() {
-      return {
-        transform: `scale(${this.printScale / 100})`,
-        transformOrigin: 'center top',
-        marginLeft: `${this.printOffsetX}px`,
-        marginTop: `${this.printOffsetY}px`
-      };
     },
     // 扎号分配：唯一实现见 domain/bundle.ts，遍历顺序固定为「尺码列外层、颜色行内层」
     bundleMap(): Map<string, number> {
@@ -483,18 +470,6 @@ export default defineComponent({
       this.dragItem = null;
       this.dragOverItem = null;
     },
-    async handleSave() {
-      this.saving = true;
-      try {
-        const finalData = { ...JSON.parse(JSON.stringify(this.formData)), updatedAt: Date.now() };
-        await saveFormToDB(finalData);
-        this.$emit('save', finalData);
-        this.saveSuccess = true;
-        setTimeout(() => { this.saveSuccess = false; }, 2000);
-      } catch (err) {
-        alert("保存失败: " + (err as Error).message);
-      } finally { this.saving = false; }
-    },
     openPrintDialog() {
       if (this.totalBundles === 0) {
         alert("表格中没有数据，无法打印。");
@@ -640,12 +615,6 @@ export default defineComponent({
         await this.applyHistoricalAmountPerPiece();
       }
     },
-    // 打印控制方法
-    resetPrintSettings() {
-      this.printScale = 100;
-      this.printOffsetX = 0;
-      this.printOffsetY = 0;
-    },
     // 重置打印样式为默认值
     resetPrintStyle() {
       this.printFontSize = 14;
@@ -654,9 +623,6 @@ export default defineComponent({
       this.printGap = 10;
       this.paperWidth = 40;
       this.paperHeight = 80;
-    },
-    adjustPrintScale(delta: number) {
-      this.printScale = Math.max(50, Math.min(150, this.printScale + delta));
     },
     // 选择性打印方法
     toggleSelectMode() {
@@ -784,77 +750,6 @@ export default defineComponent({
     printOrder() {
       this.openPrintDialog();
     },
-    
-    // 计算属性
-    get totalPieces() {
-      if (!this.formData || !this.formData.data) {
-        return 0;
-      }
-      return Object.values(this.formData.data).reduce((sum: number, val: any) => sum + (typeof val === 'number' ? val : 0), 0);
-    },
-    
-    get colorTotals() {
-      if (!this.formData) {
-        return {};
-      }
-      const totals: Record<string, number> = {};
-      this.formData.rows.forEach((row: MatrixHeader) => {
-        totals[row.id] = this.formData.cols.reduce((sum: number, col: MatrixHeader) => 
-          sum + (this.formData.data[`${row.id}_${col.id}`] || 0), 0);
-      });
-      return totals;
-    },
-    
-    get bundleMap() {
-      if (!this.formData) {
-        return new Map<string, number>();
-      }
-      // 创建一个映射，将每个单元格坐标映射到其所属的扎号
-      const map = new Map<string, number>();
-      let bundleNo = 1;
-      this.formData.rows.forEach((row: MatrixHeader) => {
-        this.formData.cols.forEach((col: MatrixHeader) => {
-          const key = `${row.id}_${col.id}`;
-          map.set(key, bundleNo++);
-        });
-      });
-      return map;
-    },
-    
-    get isAllRowFillEnabled() {
-      if (!this.formData) {
-        return false;
-      }
-      return this.formData.rows.every((r: MatrixHeader) => this.rowSmartFill[r.id]);
-    },
-    
-    get isAllColFillEnabled() {
-      if (!this.formData) {
-        return false;
-      }
-      return this.formData.cols.every((c: MatrixHeader) => this.colSmartFill[c.id]);
-    },
-    
-    get printStyleVars() {
-      return {
-        '--paper-width': this.paperWidth + 'mm',
-        '--paper-height': this.paperHeight + 'mm',
-        '--print-font-size': this.printFontSize + 'px',
-        '--print-line-spacing': this.printLineSpacing,
-        '--print-padding': this.printPadding + 'px',
-        '--print-gap': this.printGap + 'px',
-        '--print-area-width': '28mm',
-        '--print-area-height': '60mm',
-        '--print-area-top': '10mm',
-      };
-    },
-    
-    get filteredLabels() {
-      if (!this.selectMode || this.selectedBundles.length === 0) {
-        return this.labels;
-      }
-      return this.labels.filter(label => this.selectedBundles.includes(label.bundleNo));
-    }
   },
   template: `
     <!-- Thermal Label Preview Interface -->
